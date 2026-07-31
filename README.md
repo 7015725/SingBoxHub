@@ -11,7 +11,26 @@ SingBoxHub 是面向 **Android 14 / Root / ShortX / Rhino ES5** 环境的 sing-b
 - 脚本环境：ShortX / Rhino ES5
 - 已验证 Core 基线：sing-box `1.13.12`
 - Runtime 生命周期、隔离 TUN 与受控本地数据路径已完成阶段性验证
-- Phase 4 路由共存与异常退出残留清理仍在加固，尚不作为生产完成状态
+- Phase 4A 路由共存预检：通过
+- Phase 4B `auto_route` 残留恢复：通过
+- 生产控制器清理契约已升级，Phase 4B 生命周期重测已开放
+- Phase 4C 路由策略集成：尚未开放
+
+当前生产控制器 SHA-256：
+
+```text
+d15568f21d468730cb208a3c5080da0b956722206d8b7b25dfc88dbf7c4d6092
+```
+
+恢复门禁：
+
+```text
+phase4bResidualRecoveryPassed=true
+productionControllerCleanupUpgraded=true
+productionTunRuntimeRecovered=true
+phase4bControlledAutoRouteRetestReady=true
+phase4cRoutingPolicyIntegrationReady=false
+```
 
 ## 架构基线
 
@@ -36,7 +55,22 @@ Official sing-box Core
 - 配置启用前必须执行校验
 - 更新必须经过 SHA-256、备份、替换、启动检测与失败回滚
 - 路由、规则、TUN、临时文件必须具备精确所有权和清理契约
+- `auto_route` 清理仅允许处理表 `20240` 和规则优先级 `8800–8815`
+- 预留范围出现未知规则时必须停止清理，不得盲目删除
 - 仓库不提交凭据、订阅内容、设备数据库、运行日志或本机生成的二进制状态
+
+## 当前实现文件
+
+```text
+runtime/controller/auto-route-cleanup-contract.sh
+    可审查的严格 auto_route 清理契约。
+
+scripts/verify-phase4b-recovery.sh
+    验证控制器哈希、残留清理、生产启动/停止和 Clash tun0 共存。
+
+docs/phases/phase4b-auto-route-residual-recovery.md
+    Phase 4B 根因、修复范围、真机结果和阶段门禁。
+```
 
 ## 目录
 
