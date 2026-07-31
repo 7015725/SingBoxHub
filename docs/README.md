@@ -10,4 +10,13 @@
 - `security/`：威胁模型、权限与凭据边界
 - `testing/`：测试矩阵、结果判定和回归基线
 
+## 当前阶段记录
+
+- `phases/phase4b-auto-route-residual-recovery.md`
+  - Phase 4B 崩溃后 `auto_route` 规则残留根因
+  - 严格清理契约
+  - 生产控制器升级哈希
+  - Clash `tun0` 共存验证
+  - Phase 4B 重测与 Phase 4C 门禁
+
 设计冻结后的核心架构变更必须新增 ADR，不直接覆盖历史结论。
