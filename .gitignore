@@ -1,0 +1,70 @@
+# Build outputs
+build/
+out/
+dist/
+*.class
+*.dex
+*.jar
+*.apk
+*.aab
+*.so
+
+# Official core and local runtime binaries
+bin/sing-box
+bin/singboxhub-runtime
+runtime/core/
+runtime/bin/
+
+# Runtime state
+runtime/control/
+runtime/state/
+runtime/pids/
+runtime/sockets/
+logs/
+tmp/
+cache/*
+!cache/README.md
+
+# Generated metadata and backups
+metadata/backups/
+metadata/runtime.meta.json
+metadata/*.local.json
+
+# Probe outputs
+probes/results/
+probes/output/
+*_result.json
+*_result.jsonl
+*.probe.log
+
+# Local databases
+database/*.db
+database/*.db-*
+database/*.sqlite
+database/*.sqlite-*
+
+# Private configuration and credentials
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+config/runtime*.json
+config/private/
+config/secrets/
+subscriptions/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
