@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "moduleVersion": "20260731.50",
+  "probe": "singboxhub_phase4b_auto_route_residual_recovery_001",
+  "resultSha256": "caf0a7a4cae74cfef413740086b5b5a9f3cf336ec872f4394b3ec09fec061daa",
+  "production": {
+    "configSha256": "3bbf970bff202f5cb27f7afbbd9a0d70b5895024d906fa8e33be3bfe326bcf55",
+    "previousControllerSha256": "98ae1b5272901f64211901c62c9fd41a1420fcd91082de60f2edf80e53f4f4b7",
+    "controllerSha256": "d15568f21d468730cb208a3c5080da0b956722206d8b7b25dfc88dbf7c4d6092"
+  },
+  "ownership": {
+    "interface": "sbh-tun0",
+    "routeTable": 20240,
+    "rulePriorityStart": 8800,
+    "rulePriorityEnd": 8815,
+    "protectedInterface": "tun0"
+  },
+  "checks": {
+    "residualsCleaned": true,
+    "productionConfigValid": true,
+    "productionStartPassed": true,
+    "productionStopPassed": true,
+    "secondCleanupPassed": true,
+    "protectedTunUnchanged": true,
+    "policyBaselineRestored": true,
+    "systemServerStable": true,
+    "finalStateStopped": true
+  },
+  "readiness": {
+    "phase4bResidualRecoveryPassed": true,
+    "productionControllerCleanupUpgraded": true,
+    "productionTunRuntimeRecovered": true,
+    "phase4bControlledAutoRouteRetestReady": true,
+    "phase4cRoutingPolicyIntegrationReady": false
+  }
+}
