@@ -1,1 +1,557 @@
-(function(){"use strict";var P=Packages;var File=P.java.io.File;var FOS=P.java.io.FileOutputStream;var JavaString=P.java.lang.String;var System=P.java.lang.System;var Handler=P.android.os.Handler;var Looper=P.android.os.Looper;var CountDownLatch=P.java.util.concurrent.CountDownLatch;var TimeUnit=P.java.util.concurrent.TimeUnit;var AtomicReference=P.java.util.concurrent.atomic.AtomicReference;var Runnable=P.java.lang.Runnable;var Context=P.android.content.Context;var Settings=P.android.provider.Settings;var WindowManager=P.android.view.WindowManager;var Gravity=P.android.view.Gravity;var PixelFormat=P.android.graphics.PixelFormat;var Color=P.android.graphics.Color;var TextView=P.android.widget.TextView;var ENTRY_VERSION=11;var STATE_FILE=null;var STAGE="initializing";function now(){return Number(System.currentTimeMillis());}function closeQuietly(value){try{if(value!==null&&value!==undefined){value.close();}}catch(ignored){}}function errorText(error){try{if(error&&error.javaException){return String(error.javaException.getClass().getName())+": "+String(error);}}catch(ignored){}return String(error);}function ensureDir(dir){if(!dir.exists()&&!dir.mkdirs()&&!dir.isDirectory()){throw new Error("Cannot create directory: "+dir.getAbsolutePath());}if(!dir.isDirectory()){throw new Error("Not a directory: "+dir.getAbsolutePath());}return dir;}function writeJson(file,value){var temp=new File(file.getAbsolutePath()+".tmp");var output=null;ensureDir(file.getParentFile());try{output=new FOS(temp,false);output.write(new JavaString(JSON.stringify(value,null,2)+"\n").getBytes("UTF-8"));output.flush();try{output.getFD().sync();}catch(ignoredSync){}}finally{closeQuietly(output);}if(file.exists()&&!file.delete()){temp.delete();throw new Error("Cannot replace checkpoint");}if(!temp.renameTo(file)){throw new Error("Cannot install checkpoint");}}function checkpoint(status,extra){var value=extra||{};value.schemaVersion=1;value.entryVersion=ENTRY_VERSION;value.status=status;value.stage=STAGE;value.updatedAt=now();if(STATE_FILE!==null){writeJson(STATE_FILE,value);}}function getContext(){var value=null;try{if(typeof context!=="undefined"&&context!==null){value=context;}}catch(ignored1){}if(value===null){try{value=P.android.app.ActivityThread.currentApplication();}catch(ignored2){}}if(value===null){try{value=P.android.app.AppGlobals.getInitialApplication();}catch(ignored3){}}if(value===null){throw new Error("Android Context unavailable");}try{return value.getApplicationContext()||value;}catch(ignored4){return value;}}function getRoot(){var base;var first;var second;if(typeof shortx==="undefined"||shortx===null||typeof shortx.getShortXDir!=="function"){throw new Error("shortx.getShortXDir() unavailable");}base=new File(String(shortx.getShortXDir()));first=new File(base,"SingBoxHubClient");second=new File(base,"SingBoxHub-UI");try{return{root:ensureDir(first),storageMode:"shortx_client"};}catch(ignored){return{root:ensureDir(second),storageMode:"shortx_ui_fallback"};}}function canOverlay(ctx){if(P.android.os.Build.VERSION.SDK_INT<23){return true;}try{return Boolean(Settings.canDrawOverlays(ctx));}catch(ignored){return null;}}function run(){var startedAt=now();var ctx=getContext();var resolved=getRoot();var root=resolved.root;var handler=new Handler(Looper.getMainLooper());var latch=new CountDownLatch(1);var resultRef=new AtomicReference();var errorRef=new AtomicReference();var packageName=String(ctx.getPackageName());var pid=Number(P.android.os.Process.myPid());var uid=Number(P.android.os.Process.myUid());var overlayPermission=canOverlay(ctx);var posted;var completed;STATE_FILE=new File(ensureDir(new File(root,"bootstrap")),"focusable_window_probe_state.json");if(Looper.myLooper()===Looper.getMainLooper()){throw new Error("Probe cannot block Android main thread");}STAGE="before_post";checkpoint("running",{fullScreen:true,focusable:true,touchable:false,windowAdded:false,windowRemoved:false,packageName:packageName,pid:pid,uid:uid,overlayPermission:overlayPermission});posted=handler.post(new JavaAdapter(Runnable,{run:function(){var wm=null;var view=null;var params=null;var type;var flags;var added=false;try{STAGE="create_view";checkpoint("running",{viewCreated:false,fullScreen:true,focusable:true,touchable:false});view=new TextView(ctx);view.setBackgroundColor(Color.parseColor("#FFF9F2"));view.setText("SingBoxHub\n全屏可聚焦探测");view.setTextColor(Color.parseColor("#17213A"));view.setTextSize(20);view.setGravity(Gravity.CENTER);type=P.android.os.Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;flags=WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;params=new WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT,type,flags,PixelFormat.TRANSLUCENT);params.gravity=Gravity.TOP|Gravity.START;params.windowAnimations=0;params.setTitle("SingBoxHub Focusable Window Probe");wm=ctx.getSystemService(Context.WINDOW_SERVICE);STAGE="before_add_view";checkpoint("running",{viewCreated:true,fullScreen:true,focusable:true,touchable:false,windowAdded:false,windowRemoved:false,type:Number(params.type),flags:Number(params.flags)});wm.addView(view,params);added=true;STAGE="after_add_view";checkpoint("running",{viewCreated:true,fullScreen:true,focusable:true,touchable:false,windowAdded:true,windowRemoved:false,visibleDurationMs:1800});handler.postDelayed(new JavaAdapter(Runnable,{run:function(){var hadWindowFocus=false;try{hadWindowFocus=Boolean(view.hasWindowFocus());STAGE="before_remove_view";checkpoint("running",{fullScreen:true,focusable:true,touchable:false,hadWindowFocus:hadWindowFocus,windowAdded:true,windowRemoved:false});wm.removeView(view);added=false;STAGE="after_remove_view";checkpoint("focusable_window_probe_passed",{fullScreen:true,focusable:true,touchable:false,hadWindowFocus:hadWindowFocus,windowAdded:true,windowRemoved:true});resultRef.set({type:Number(params.type),flags:Number(params.flags),hadWindowFocus:hadWindowFocus});}catch(removeError){errorRef.set("removeView: "+errorText(removeError));try{if(added){wm.removeViewImmediate(view);}}catch(ignoredCleanup){}}finally{latch.countDown();}}}),1800);}catch(addError){errorRef.set("addView: "+errorText(addError));try{if(added&&wm!==null&&view!==null){wm.removeViewImmediate(view);}}catch(ignoredCleanup2){}latch.countDown();}}}));if(!posted){throw new Error("Failed to post probe to main thread");}STAGE="waiting_for_completion";completed=Boolean(latch.await(12,TimeUnit.SECONDS));if(!completed){throw new Error("Probe timed out");}if(errorRef.get()!==null){throw new Error(String(errorRef.get()));}if(resultRef.get()===null){throw new Error("Probe returned no result");}STAGE="complete";checkpoint("focusable_window_probe_passed",{fullScreen:true,focusable:true,touchable:false,hadWindowFocus:Boolean(resultRef.get().hadWindowFocus),windowAdded:true,windowRemoved:true,receiverRegistered:false,insetsListenerRegistered:false});return{ok:true,project:"SingBoxHub",entryVersion:ENTRY_VERSION,started:false,status:"focusable_window_probe_passed",safeMode:true,modulesEvaluated:false,appStartInvoked:false,coordinatorStarted:false,receiverRegistered:false,insetsListenerRegistered:false,viewsCreated:1,windowOperationsEnabled:true,fullScreen:true,focusable:true,touchable:false,hadWindowFocus:Boolean(resultRef.get().hadWindowFocus),windowAdded:true,windowRemoved:true,visibleDurationMs:1800,windowWidth:-1,windowHeight:-1,windowType:Number(resultRef.get().type),windowFlags:Number(resultRef.get().flags),packageName:packageName,pid:pid,uid:uid,overlayPermission:overlayPermission,runtimeAttached:false,destructiveOperations:false,checkpointPath:STATE_FILE.getAbsolutePath(),rootDir:root.getAbsolutePath(),storageMode:resolved.storageMode,durationMs:now()-startedAt,timestamp:now()};}try{return JSON.stringify(run());}catch(fatal){try{checkpoint("focusable_window_probe_failed",{error:errorText(fatal),fullScreen:true,focusable:true,touchable:false,windowAdded:STAGE==="after_add_view"||STAGE==="before_remove_view",windowRemoved:false});}catch(ignoredCheckpoint){}return JSON.stringify({ok:false,project:"SingBoxHub",entryVersion:ENTRY_VERSION,started:false,status:"focusable_window_probe_failed",stage:STAGE,safeMode:true,fullScreen:true,focusable:true,touchable:false,runtimeAttached:false,destructiveOperations:false,error:errorText(fatal),timestamp:now()});}}());
+/*
+ * SingBoxHub modular UI bootstrap.
+ * ShortX / Rhino ES5.
+ */
+(function (global) {
+    "use strict";
+
+    var P = Packages;
+    var File = P.java.io.File;
+    var URL = P.java.net.URL;
+    var FIS = P.java.io.FileInputStream;
+    var FOS = P.java.io.FileOutputStream;
+    var BAOS = P.java.io.ByteArrayOutputStream;
+    var ReflectArray = P.java.lang.reflect.Array;
+    var JavaByte = P.java.lang.Byte;
+    var JavaString = P.java.lang.String;
+    var MessageDigest = P.java.security.MessageDigest;
+    var System = P.java.lang.System;
+    var RhinoContext = P.org.mozilla.javascript.Context;
+
+    var PROJECT = "SingBoxHub";
+    var ENTRY_VERSION = 12;
+    var REF = "agent/modular-ui-bootstrap-20260801";
+    var RAW_BASE = "https://raw.githubusercontent.com/7015725/SingBoxHub/" + REF + "/";
+    var MODULE_NAMES = [
+        "sbh_01_base.js",
+        "sbh_02_log.js",
+        "sbh_03_files.js",
+        "sbh_04_database.js",
+        "sbh_05_theme.js",
+        "sbh_06_widgets.js",
+        "sbh_07_window.js",
+        "sbh_08_navigation.js",
+        "sbh_09_home.js",
+        "sbh_10_subscriptions.js",
+        "sbh_11_nodes.js",
+        "sbh_12_runtime_logs.js",
+        "sbh_13_automation.js",
+        "sbh_14_runtime_client.js",
+        "sbh_15_app.js"
+    ];
+
+    function now() {
+        return Number(System.currentTimeMillis());
+    }
+
+    function closeQuietly(value) {
+        try {
+            if (value !== null && value !== undefined) {
+                value.close();
+            }
+        } catch (ignored) {}
+    }
+
+    function errorText(error) {
+        try {
+            if (error && error.javaException) {
+                return String(error.javaException.getClass().getName()) + ": " + String(error);
+            }
+        } catch (ignored) {}
+        return String(error);
+    }
+
+    function ensureDir(dir) {
+        if (!dir.exists() && !dir.mkdirs() && !dir.isDirectory()) {
+            throw new Error("Cannot create directory: " + dir.getAbsolutePath());
+        }
+        if (!dir.isDirectory()) {
+            throw new Error("Not a directory: " + dir.getAbsolutePath());
+        }
+        return dir;
+    }
+
+    function getContext() {
+        var value = null;
+        try {
+            if (typeof context !== "undefined" && context !== null) {
+                value = context;
+            }
+        } catch (ignored1) {}
+        if (value === null) {
+            try {
+                value = P.android.app.ActivityThread.currentApplication();
+            } catch (ignored2) {}
+        }
+        if (value === null) {
+            try {
+                value = P.android.app.AppGlobals.getInitialApplication();
+            } catch (ignored3) {}
+        }
+        if (value === null) {
+            throw new Error("Android Context unavailable");
+        }
+        try {
+            return value.getApplicationContext() || value;
+        } catch (ignored4) {
+            return value;
+        }
+    }
+
+    function shortxRoot() {
+        if (typeof shortx === "undefined" || shortx === null || typeof shortx.getShortXDir !== "function") {
+            throw new Error("shortx.getShortXDir() unavailable");
+        }
+        return new File(String(shortx.getShortXDir()));
+    }
+
+    function probeWritable(dir) {
+        var file = null;
+        var output = null;
+        try {
+            ensureDir(dir);
+            file = new File(dir, ".sbh-write-" + now());
+            output = new FOS(file, false);
+            output.write(new JavaString("ok").getBytes("UTF-8"));
+            output.flush();
+            closeQuietly(output);
+            output = null;
+            return file.isFile() && (file.delete() || !file.exists());
+        } catch (ignored) {
+            return false;
+        } finally {
+            closeQuietly(output);
+            try {
+                if (file !== null && file.exists()) {
+                    file.delete();
+                }
+            } catch (ignoredDelete) {}
+        }
+    }
+
+    function resolveRoot(ctx) {
+        var base = shortxRoot();
+        var candidates = [
+            { mode: "shortx_client", dir: new File(base, "SingBoxHubClient") },
+            { mode: "shortx_ui_fallback", dir: new File(base, "SingBoxHub-UI") }
+        ];
+        var filesDir = null;
+        var i;
+        try {
+            filesDir = ctx.getFilesDir();
+        } catch (ignored) {}
+        if (filesDir !== null) {
+            candidates.push({
+                mode: "app_files_fallback",
+                dir: new File(filesDir, "SingBoxHubClient")
+            });
+        }
+        for (i = 0; i < candidates.length; i += 1) {
+            if (probeWritable(candidates[i].dir)) {
+                return candidates[i];
+            }
+        }
+        throw new Error("No writable SingBoxHub client directory");
+    }
+
+    function readBytes(stream) {
+        var output = new BAOS();
+        var buffer = ReflectArray.newInstance(JavaByte.TYPE, 8192);
+        var count;
+        try {
+            while ((count = stream.read(buffer)) >= 0) {
+                if (count > 0) {
+                    output.write(buffer, 0, count);
+                }
+            }
+            return output.toByteArray();
+        } finally {
+            closeQuietly(stream);
+            closeQuietly(output);
+        }
+    }
+
+    function readUtf8(file) {
+        return String(new JavaString(readBytes(new FIS(file)), "UTF-8"));
+    }
+
+    function writeUtf8(file, text) {
+        var output = null;
+        ensureDir(file.getParentFile());
+        try {
+            output = new FOS(file, false);
+            output.write(new JavaString(String(text)).getBytes("UTF-8"));
+            output.flush();
+            try {
+                output.getFD().sync();
+            } catch (ignoredSync) {}
+        } finally {
+            closeQuietly(output);
+        }
+    }
+
+    function writeAtomic(file, text) {
+        var temp = new File(file.getAbsolutePath() + ".tmp");
+        if (temp.exists()) {
+            temp.delete();
+        }
+        writeUtf8(temp, text);
+        if (file.exists() && !file.delete()) {
+            temp.delete();
+            throw new Error("Cannot replace: " + file.getAbsolutePath());
+        }
+        if (!temp.renameTo(file)) {
+            throw new Error("Cannot install: " + file.getAbsolutePath());
+        }
+    }
+
+    function writeJson(file, value) {
+        writeAtomic(file, JSON.stringify(value, null, 2) + "\n");
+    }
+
+    function readJson(file, fallback) {
+        try {
+            if (!file.isFile()) {
+                return fallback;
+            }
+            return JSON.parse(readUtf8(file));
+        } catch (ignored) {
+            return fallback;
+        }
+    }
+
+    function deleteTree(file) {
+        var children;
+        var i;
+        if (!file.exists()) {
+            return true;
+        }
+        if (file.isDirectory()) {
+            children = file.listFiles();
+            if (children !== null) {
+                for (i = 0; i < children.length; i += 1) {
+                    deleteTree(children[i]);
+                }
+            }
+        }
+        return !file.exists() || file.delete();
+    }
+
+    function sha256(text) {
+        var digest = MessageDigest.getInstance("SHA-256");
+        var result = digest.digest(new JavaString(String(text)).getBytes("UTF-8"));
+        var output = [];
+        var i;
+        var value;
+        var hex;
+        for (i = 0; i < result.length; i += 1) {
+            value = Number(result[i]);
+            if (value < 0) {
+                value += 256;
+            }
+            hex = value.toString(16);
+            output.push(hex.length === 1 ? "0" + hex : hex);
+        }
+        return output.join("");
+    }
+
+    function fetchText(path) {
+        var connection = null;
+        var code;
+        var stream;
+        var text;
+        try {
+            connection = new URL(RAW_BASE + String(path) + "?entry=" + ENTRY_VERSION + "-" + now()).openConnection();
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(30000);
+            connection.setUseCaches(false);
+            connection.setRequestProperty("Accept-Encoding", "identity");
+            connection.setRequestProperty("Cache-Control", "no-cache");
+            connection.setRequestProperty("User-Agent", "SingBoxHub-ShortX/" + ENTRY_VERSION);
+            code = Number(connection.getResponseCode());
+            stream = code >= 200 && code < 300 ? connection.getInputStream() : connection.getErrorStream();
+            text = String(new JavaString(readBytes(stream), "UTF-8"));
+            if (code < 200 || code >= 300) {
+                throw new Error("HTTP " + code + " for " + path);
+            }
+            if (text.length > 2 * 1024 * 1024) {
+                throw new Error("Response too large: " + path);
+            }
+            return text;
+        } finally {
+            try {
+                if (connection !== null) {
+                    connection.disconnect();
+                }
+            } catch (ignoredDisconnect) {}
+        }
+    }
+
+    function validateManifest(manifest) {
+        var i;
+        var item;
+        if (!manifest || Number(manifest.schemaVersion) !== 1 || String(manifest.sourceRef || "") !== REF || Number(manifest.entryMinVersion || 0) > ENTRY_VERSION || !manifest.moduleSetVersion || !manifest.modules || Number(manifest.modules.length) !== MODULE_NAMES.length) {
+            throw new Error("Invalid module manifest");
+        }
+        for (i = 0; i < MODULE_NAMES.length; i += 1) {
+            item = manifest.modules[i];
+            if (!item || String(item.name || "") !== MODULE_NAMES[i] || String(item.path || "") !== "src/" + MODULE_NAMES[i] || !/^[0-9a-f]{64}$/.test(String(item.sha256 || ""))) {
+                throw new Error("Invalid module item: " + i);
+            }
+        }
+        return manifest;
+    }
+
+    function compileOnly(source, name) {
+        var current = RhinoContext.getCurrentContext();
+        if (current === null) {
+            throw new Error("Rhino Context unavailable");
+        }
+        current.compileString("(function(SBH){\n" + source + "\n}(SBH));", String(name), 1, null);
+    }
+
+    function buildPaths(resolved) {
+        var root = resolved.dir;
+        var bootstrap = ensureDir(new File(root, "bootstrap"));
+        var modules = ensureDir(new File(root, "modules"));
+        return {
+            rootDir: root,
+            storageMode: resolved.mode,
+            bootstrapDir: bootstrap,
+            modulesDir: modules,
+            setsDir: ensureDir(new File(modules, "sets")),
+            dataDir: ensureDir(new File(root, "data")),
+            cacheDir: ensureDir(new File(root, "cache")),
+            logsDir: ensureDir(new File(root, "logs")),
+            stateDir: ensureDir(new File(root, "state")),
+            activeFile: new File(bootstrap, "active.json"),
+            lastGoodFile: new File(bootstrap, "last_good.json"),
+            updateStateFile: new File(bootstrap, "update_state.json")
+        };
+    }
+
+    function setDir(paths, version) {
+        return new File(paths.setsDir, String(version));
+    }
+
+    function localManifest(paths, version) {
+        var file = new File(setDir(paths, version), "module-manifest.json");
+        if (!file.isFile()) {
+            throw new Error("Local manifest missing: " + version);
+        }
+        return validateManifest(JSON.parse(readUtf8(file)));
+    }
+
+    function verifySet(paths, manifest) {
+        var dir = setDir(paths, manifest.moduleSetVersion);
+        var i;
+        var item;
+        var file;
+        if (!dir.isDirectory()) {
+            return false;
+        }
+        for (i = 0; i < manifest.modules.length; i += 1) {
+            item = manifest.modules[i];
+            file = new File(dir, item.name);
+            if (!file.isFile() || sha256(readUtf8(file)) !== String(item.sha256)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function prepareSet(paths, manifest) {
+        var version = String(manifest.moduleSetVersion);
+        var finalDir = setDir(paths, version);
+        var stage = new File(paths.setsDir, version + ".tmp-" + now());
+        var item;
+        var source;
+        var i;
+        if (verifySet(paths, manifest)) {
+            return { version: version, reused: true, downloadedCount: 0 };
+        }
+        deleteTree(stage);
+        ensureDir(stage);
+        try {
+            for (i = 0; i < manifest.modules.length; i += 1) {
+                item = manifest.modules[i];
+                source = fetchText(item.path);
+                if (sha256(source) !== String(item.sha256)) {
+                    throw new Error("SHA-256 mismatch: " + item.name);
+                }
+                compileOnly(source, item.name);
+                writeUtf8(new File(stage, item.name), source);
+            }
+            writeUtf8(new File(stage, "module-manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+            if (finalDir.exists()) {
+                deleteTree(finalDir);
+            }
+            if (!stage.renameTo(finalDir)) {
+                throw new Error("Cannot activate module set: " + version);
+            }
+            return { version: version, reused: false, downloadedCount: manifest.modules.length };
+        } catch (error) {
+            deleteTree(stage);
+            throw error;
+        }
+    }
+
+    function loadSet(paths, version, ctx, syncInfo) {
+        var manifest = localManifest(paths, version);
+        var dir = setDir(paths, version);
+        var SBH = {
+            global: global,
+            context: ctx,
+            state: {},
+            services: {},
+            versions: {},
+            bootstrap: {
+                project: PROJECT,
+                entryVersion: ENTRY_VERSION,
+                moduleSetVersion: String(version),
+                sourceRef: REF,
+                storageMode: paths.storageMode,
+                sync: syncInfo
+            },
+            paths: {
+                rootDir: paths.rootDir,
+                bootstrapDir: paths.bootstrapDir,
+                modulesDir: paths.modulesDir,
+                setsDir: paths.setsDir,
+                dataDir: paths.dataDir,
+                cacheDir: paths.cacheDir,
+                logsDir: paths.logsDir,
+                stateDir: paths.stateDir
+            }
+        };
+        var i;
+        var item;
+        var source;
+        for (i = 0; i < manifest.modules.length; i += 1) {
+            item = manifest.modules[i];
+            source = readUtf8(new File(dir, item.name));
+            if (sha256(source) !== String(item.sha256)) {
+                throw new Error("Local module corrupted: " + item.name);
+            }
+            eval("(function(SBH){\n" + source + "\n}(SBH));");
+        }
+        if (!SBH.app || typeof SBH.app.start !== "function") {
+            throw new Error("App module did not register start()");
+        }
+        return { namespace: SBH, result: SBH.app.start() };
+    }
+
+    function pointerVersion(pointer) {
+        return pointer && pointer.moduleSetVersion ? String(pointer.moduleSetVersion) : "";
+    }
+
+    function run() {
+        var startedAt = now();
+        var ctx = getContext();
+        var resolved = resolveRoot(ctx);
+        var paths = buildPaths(resolved);
+        var active = readJson(paths.activeFile, null);
+        var lastGood = readJson(paths.lastGoodFile, null);
+        var syncInfo = {
+            remoteAvailable: false,
+            updated: false,
+            downloadedCount: 0,
+            fallback: false,
+            warning: null,
+            sourceRef: REF,
+            storageMode: paths.storageMode
+        };
+        var candidate = "";
+        var remoteManifest;
+        var prepared;
+        var loaded;
+        var fallback;
+        var stamp = now();
+
+        try {
+            remoteManifest = validateManifest(JSON.parse(fetchText("module-manifest.json")));
+            syncInfo.remoteAvailable = true;
+            prepared = prepareSet(paths, remoteManifest);
+            candidate = prepared.version;
+            syncInfo.updated = !prepared.reused;
+            syncInfo.downloadedCount = prepared.downloadedCount;
+        } catch (syncError) {
+            syncInfo.warning = errorText(syncError);
+            candidate = pointerVersion(active) || pointerVersion(lastGood);
+        }
+
+        if (!candidate) {
+            throw new Error("No verified module set available: " + String(syncInfo.warning || "unknown"));
+        }
+
+        try {
+            loaded = loadSet(paths, candidate, ctx, syncInfo);
+        } catch (loadError) {
+            fallback = pointerVersion(lastGood);
+            if (!fallback || fallback === candidate) {
+                throw loadError;
+            }
+            syncInfo.fallback = true;
+            syncInfo.warning = errorText(loadError);
+            candidate = fallback;
+            loaded = loadSet(paths, candidate, ctx, syncInfo);
+        }
+
+        writeJson(paths.activeFile, {
+            schemaVersion: 1,
+            moduleSetVersion: candidate,
+            sourceRef: REF,
+            storageMode: paths.storageMode,
+            activatedAt: stamp
+        });
+        writeJson(paths.lastGoodFile, {
+            schemaVersion: 1,
+            moduleSetVersion: candidate,
+            sourceRef: REF,
+            storageMode: paths.storageMode,
+            lastSuccessfulStartAt: stamp
+        });
+        writeJson(paths.updateStateFile, {
+            schemaVersion: 1,
+            entryVersion: ENTRY_VERSION,
+            updatedAt: stamp,
+            sync: syncInfo,
+            status: "full_ui_started"
+        });
+
+        global.__SBH_NAMESPACE__ = loaded.namespace;
+
+        return {
+            ok: true,
+            project: PROJECT,
+            entryVersion: ENTRY_VERSION,
+            moduleSetVersion: candidate,
+            started: true,
+            status: "full_ui_started",
+            runtimeAttached: false,
+            destructiveOperations: false,
+            sync: syncInfo,
+            app: loaded.result,
+            rootDir: paths.rootDir.getAbsolutePath(),
+            storageMode: paths.storageMode,
+            durationMs: now() - startedAt,
+            timestamp: now()
+        };
+    }
+
+    try {
+        return JSON.stringify(run());
+    } catch (fatal) {
+        return JSON.stringify({
+            ok: false,
+            project: PROJECT,
+            entryVersion: ENTRY_VERSION,
+            started: false,
+            status: "full_ui_bootstrap_failed",
+            runtimeAttached: false,
+            destructiveOperations: false,
+            error: errorText(fatal),
+            timestamp: now()
+        });
+    }
+}(this));
