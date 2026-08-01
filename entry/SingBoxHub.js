@@ -152,7 +152,7 @@
                 path.reset(); p.setShader(new LinearGradient(0, h, w, 0, col("#7E87E0"), col("#A8D8C6"), Shader.TileMode.CLAMP));
                 path.moveTo(s * 0.80, s * 0.75); path.cubicTo(s * 0.58, s * 0.98, s * 0.18, s * 0.82, s * 0.20, s * 0.57); path.cubicTo(s * 0.22, s * 0.36, s * 0.65, s * 0.42, s * 0.77, s * 0.21); canvas.drawPath(path, p);
             }
-        }); v.setLayoutParams(lp(dp(54), dp(54))); return v;
+        }, ctx); v.setLayoutParams(lp(dp(54), dp(54))); return v;
     }
 
     function ArtView(mountain) {
@@ -171,7 +171,7 @@
                     canvas.drawLine(w * 0.68, h * 0.55, w * 0.68, h * 0.76, p); canvas.drawLine(w * 0.86, h * 0.55, w * 0.86, h * 0.76, p);
                 }
             }
-        }); v.setLayoutParams(fp(MATCH, MATCH)); return v;
+        }, ctx); v.setLayoutParams(fp(MATCH, MATCH)); return v;
     }
 
     function topBar() {
