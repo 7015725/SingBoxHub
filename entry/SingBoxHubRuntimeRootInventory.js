@@ -1,8 +1,9 @@
 /*
- * SingBoxHub production Runtime root-assisted read-only inventory.
+ * SingBoxHub production Runtime root-assisted read-only inventory v2.
  * ShortX / Rhino ES5.
  *
  * Safety boundary:
+ * - resolves the actual su executable through /system/bin/sh
  * - uses su --mount-master only for fixed find/test operations
  * - no network
  * - no file creation, modification or deletion
@@ -25,10 +26,10 @@
 
     var PROJECT = "SingBoxHub";
     var PROBE = "runtime_root_readonly_inventory";
-    var PROBE_VERSION = 1;
+    var PROBE_VERSION = 2;
     var MAX_DEPTH = 5;
     var MAX_ENTRIES = 400;
-    var TIMEOUT_SECONDS = 10;
+    var TIMEOUT_SECONDS = 15;
 
     function now() {
         return Number(System.currentTimeMillis());
@@ -102,17 +103,28 @@
             "  printf 'E\\t%s\\t%s\\n' \"$TYPE\" \"$ITEM\"",
             "done"
         ].join("\n");
-        var timed = "/system/bin/toybox timeout " + TIMEOUT_SECONDS +
-            " /system/bin/sh -c " + shellQuote(inner);
+        var outer = [
+            "PATH_VALUE=\"${PATH:-}\"",
+            "SU_BIN=\"$(command -v su 2>/dev/null || true)\"",
+            "if [ -z \"$SU_BIN\" ]; then",
+            "  for CANDIDATE in /system/bin/su /system/xbin/su /sbin/su /debug_ramdisk/su /data/adb/ksu/bin/su; do",
+            "    if [ -x \"$CANDIDATE\" ]; then SU_BIN=\"$CANDIDATE\"; break; fi",
+            "  done",
+            "fi",
+            "printf 'M\\tsuPath\\t%s\\n' \"$SU_BIN\"",
+            "printf 'M\\tpathEnv\\t%s\\n' \"$PATH_VALUE\"",
+            "if [ -z \"$SU_BIN\" ]; then exit 127; fi",
+            "exec /system/bin/toybox timeout " + TIMEOUT_SECONDS +
+                " \"$SU_BIN\" --mount-master -c " + shellQuote(inner)
+        ].join("\n");
         var args = new ArrayList();
         var process;
         var output;
         var exitCode;
 
-        args.add("su");
-        args.add("--mount-master");
+        args.add("/system/bin/sh");
         args.add("-c");
-        args.add(timed);
+        args.add(outer);
 
         process = new ProcessBuilder(args)
             .redirectErrorStream(true)
@@ -152,6 +164,8 @@
         var diagnostics = [];
         var rootUid = null;
         var rootState = "unknown";
+        var suPath = "";
+        var pathEnv = "";
         var truncated = false;
         var i;
         var fields;
@@ -170,6 +184,10 @@
                     rootUid = Number(fields[2]);
                 } else if (fields[1] === "root") {
                     rootState = String(fields[2]);
+                } else if (fields[1] === "suPath") {
+                    suPath = String(fields.slice(2).join("\t"));
+                } else if (fields[1] === "pathEnv") {
+                    pathEnv = String(fields.slice(2).join("\t"));
                 }
                 continue;
             }
@@ -198,6 +216,9 @@
         }
 
         return {
+            suPath: suPath,
+            suResolved: suPath.length > 0,
+            pathEnv: pathEnv,
             rootUid: rootUid,
             rootGranted: rootUid === 0,
             rootState: rootState,
@@ -228,8 +249,10 @@
             readOnly: true,
             rootRequested: true,
             rootGranted: inventory.rootGranted,
+            suResolved: inventory.suResolved,
+            suPath: inventory.suPath,
             shellExecuted: true,
-            shellPurpose: "fixed_find_and_test_only",
+            shellPurpose: "resolve_su_then_fixed_find_and_test_only",
             networkAccessed: false,
             filesModified: false,
             fileContentsRead: false,
