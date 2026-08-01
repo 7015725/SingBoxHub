@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "moduleSetVersion": "20260802.05",
+  "moduleSetVersion": "20260802.06",
   "entryMinVersion": 13,
   "sourceRef": "agent/runtime-client-readonly-20260802",
   "modules": [
@@ -77,7 +77,7 @@
     {
       "name": "sbh_15_app.js",
       "path": "src/sbh_15_app.js",
-      "sha256": "217e49dad833401eb7cdf2e007c5a5c2e0dcd618c3d4fa029ddcb29daf8d9baf"
+      "sha256": "a78e07debf0ca53773258b9d6ceb6a47a3a834e291ac9ef6b701bba60a7bf78a"
     },
     {
       "name": "sbh_16_runtime_status_home.js",
