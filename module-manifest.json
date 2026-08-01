@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "moduleSetVersion": "20260801.01",
+  "entryMinVersion": 3,
+  "sourceRef": "agent/modular-ui-bootstrap-20260801",
+  "modules": [
+    {
+      "name": "sbh_01_base.js",
+      "path": "src/sbh_01_base.js",
+      "sha256": "7c215aa85e9e322117a18071258c64d91eb645fea17ef1d0c3258e12e83adff8"
+    },
+    {
+      "name": "sbh_02_log.js",
+      "path": "src/sbh_02_log.js",
+      "sha256": "fd636fb33093c93f18be0481bc47fe8c186de614b704a18d23183bb94b0e54a1"
+    },
+    {
+      "name": "sbh_03_files.js",
+      "path": "src/sbh_03_files.js",
+      "sha256": "8085007151871299a4fa6b21b78f4c84d54434550bf5c048f8c788f92e259fdd"
+    },
+    {
+      "name": "sbh_04_database.js",
+      "path": "src/sbh_04_database.js",
+      "sha256": "372b457f9c67ce5e1b041cdc41fa3602074b375bc2c5916caad532fd46a7239e"
+    },
+    {
+      "name": "sbh_05_theme.js",
+      "path": "src/sbh_05_theme.js",
+      "sha256": "c4b55e3aeefc2bc7a3d853e882169fbd4cb3cdf56b5d2385847f971bc50b5e4d"
+    },
+    {
+      "name": "sbh_06_widgets.js",
+      "path": "src/sbh_06_widgets.js",
+      "sha256": "50b4b11954b3e41ce9c6c20d0c41d8e4e2ba5b455fc9993fb8eb9198e6cc6c63"
+    },
+    {
+      "name": "sbh_07_window.js",
+      "path": "src/sbh_07_window.js",
+      "sha256": "b20242c8dc9bd8e78a31a20896ddc4b6d797f075cefc2ec2c8eb213662b43863"
+    },
+    {
+      "name": "sbh_08_navigation.js",
+      "path": "src/sbh_08_navigation.js",
+      "sha256": "e52cbe0ea259400c31a9d10ce644b58dab267635fac3e1e2e2592252d76db87e"
+    },
+    {
+      "name": "sbh_09_home.js",
+      "path": "src/sbh_09_home.js",
+      "sha256": "7fa127b6a35271ca9ba3874d31c6eb18613c3c20253426a1110093ffc71ae9a4"
+    },
+    {
+      "name": "sbh_10_subscriptions.js",
+      "path": "src/sbh_10_subscriptions.js",
+      "sha256": "6c1dfa47249749f42f1f95462c63e02bb7e2705a30a66792172345c589e64280"
+    },
+    {
+      "name": "sbh_11_nodes.js",
+      "path": "src/sbh_11_nodes.js",
+      "sha256": "b69d2b30a0916b17e855b8ad9dd7ee4022de74c6be9d50ec43b8f57f5f210072"
+    },
+    {
+      "name": "sbh_12_runtime_logs.js",
+      "path": "src/sbh_12_runtime_logs.js",
+      "sha256": "7133e1ed46638a40758c27b8dfa09cdf3c71fe620ad37af4fe244d76ee1b9547"
+    },
+    {
+      "name": "sbh_13_automation.js",
+      "path": "src/sbh_13_automation.js",
+      "sha256": "17843fe5a8bff943271c966bf09769e2315a2bdf42d7c42f4e8eeae1b7259d4d"
+    },
+    {
+      "name": "sbh_14_runtime_client.js",
+      "path": "src/sbh_14_runtime_client.js",
+      "sha256": "2b9ccd9cd02c84926c5901868a90398e7d12c4f247527e2e3edda09ab036e0c2"
+    },
+    {
+      "name": "sbh_15_app.js",
+      "path": "src/sbh_15_app.js",
+      "sha256": "0234e063a49800b46dd00cac3251c9dbff5a767c05c662fbed4746af7da16fec"
+    }
+  ]
+}
