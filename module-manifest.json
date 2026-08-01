@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "moduleSetVersion": "20260802.06",
+  "moduleSetVersion": "20260802.07",
   "entryMinVersion": 13,
   "sourceRef": "agent/runtime-client-readonly-20260802",
   "modules": [
     {
       "name": "sbh_01_base.js",
       "path": "src/sbh_01_base.js",
-      "sha256": "7c215aa85e9e322117a18071258c64d91eb645fea17ef1d0c3258e12e83adff8"
+      "sha256": "be7ed2be51c2b1790bfd52ed55036aa487b9d543769c3762905a9439bc988187"
     },
     {
       "name": "sbh_02_log.js",
@@ -37,7 +37,7 @@
     {
       "name": "sbh_07_window.js",
       "path": "src/sbh_07_window.js",
-      "sha256": "ada70fea8c3e3638aae54b77d4bebe8d0c029443b9ef8e889e5630c334fed602"
+      "sha256": "b53a9f3bf7ec49de86694b5a28034ae468e07e93a5e7efe3abef13ca5cdc9353"
     },
     {
       "name": "sbh_08_navigation.js",
@@ -72,17 +72,17 @@
     {
       "name": "sbh_14_runtime_client.js",
       "path": "src/sbh_14_runtime_client.js",
-      "sha256": "76bfb940bb7581a1d5486c83dc0be44e2122dcce24efc51fd783dae1d14bbdbc"
+      "sha256": "907f5f657197a272ac4844d63c9c4226d86cd0ab01defedf8f4f3c2590afd170"
     },
     {
       "name": "sbh_15_app.js",
       "path": "src/sbh_15_app.js",
-      "sha256": "a78e07debf0ca53773258b9d6ceb6a47a3a834e291ac9ef6b701bba60a7bf78a"
+      "sha256": "5e8e5b0d5a648316d39282ffe371f88f66a64e5107cee94159c07f318802b02e"
     },
     {
       "name": "sbh_16_runtime_status_home.js",
       "path": "src/sbh_16_runtime_status_home.js",
-      "sha256": "dfc4d44762ad921c47cbc7e30b9072d7419b96e44de0083668084e65158b714e"
+      "sha256": "e2e10cfaf3dbfac93dc3bd6a6bc7a5e34afc346ba540acf96e07cb19414a7b02"
     }
   ]
 }
