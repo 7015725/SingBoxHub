@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "moduleSetVersion": "20260802.10",
+  "moduleSetVersion": "20260802.11",
   "entryMinVersion": 13,
   "sourceRef": "agent/runtime-client-readonly-20260802",
   "modules": [
@@ -93,6 +93,11 @@
       "name": "sbh_18_protocol_adapter_plan.js",
       "path": "src/sbh_18_protocol_adapter_plan.js",
       "sha256": "b4a8da4c43eca87cc0cc60506c3cb825d05ca237da15b4aacb4376c28de97c98"
+    },
+    {
+      "name": "sbh_19_runtime_jar_static_inspection.js",
+      "path": "src/sbh_19_runtime_jar_static_inspection.js",
+      "sha256": "6eaf6b5088496265f3144820e8f34a2c7ea8bde430665dc6b33dce1b1cf5e78d"
     }
   ]
 }
