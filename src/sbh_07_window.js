@@ -1,5 +1,5 @@
-/* SingBoxHub WindowManager module. Rhino ES5 only. */
-SBH.versions.window = 1;
+/* SingBoxHub hardened WindowManager module. Rhino ES5 only. */
+SBH.versions.window = 2;
 
 (function () {
     var P = Packages;
@@ -7,6 +7,10 @@ SBH.versions.window = 1;
     var FrameLayout = P.android.widget.FrameLayout;
     var Gravity = P.android.view.Gravity;
     var KeyEvent = P.android.view.KeyEvent;
+    var View = P.android.view.View;
+    var Context = P.android.content.Context;
+    var Runnable = P.java.lang.Runnable;
+    var File = P.java.io.File;
     var C = SBH.theme.colors;
     var W = SBH.widgets;
     var MATCH = W.MATCH;
@@ -21,90 +25,133 @@ SBH.versions.window = 1;
             page: 0,
             attached: false,
             visible: false,
-            currentPageView: null,
+            rendering: false,
+            stage: "created",
             onHidden: null
         };
+        var stateFile = new File(
+            SBH.paths.bootstrapDir,
+            "full_ui_window_state.json"
+        );
+
+        function checkpoint(stage, extra) {
+            var value = extra || {};
+            controller.stage = stage;
+            value.schemaVersion = 1;
+            value.stage = stage;
+            value.page = controller.page;
+            value.attached = controller.attached;
+            value.visible = controller.visible;
+            value.moduleSetVersion = SBH.bootstrap.moduleSetVersion;
+            value.updatedAt = SBH.util.now();
+            try {
+                SBH.files.writeJson(stateFile, value);
+            } catch (ignored) {}
+        }
+
+        function hideKeyboard() {
+            var imm;
+            try {
+                imm = SBH.ctx.getSystemService(
+                    Context.INPUT_METHOD_SERVICE
+                );
+                if (controller.root !== null) {
+                    imm.hideSoftInputFromWindow(
+                        controller.root.getWindowToken(),
+                        0
+                    );
+                    controller.root.clearFocus();
+                }
+            } catch (ignored) {}
+        }
 
         controller.buildTopBar = function () {
             var bar = W.row();
             var brand = W.column();
             var subtitle;
-            var bell;
-            var more;
+            var closeBox = new FrameLayout(SBH.ctx);
 
             bar.setPadding(
-                SBH.util.dp(18),
-                SBH.util.dp(12),
-                SBH.util.dp(12),
+                SBH.util.dp(16),
+                SBH.util.dp(10),
+                SBH.util.dp(10),
                 SBH.util.dp(8)
             );
             bar.setBackgroundColor(SBH.util.color(C.bg));
             bar.addView(W.brandView());
 
             brand.setPadding(SBH.util.dp(10), 0, 0, 0);
-            brand.addView(W.text("SingBoxHub", 24, C.navy, true));
+            brand.addView(W.text("SingBoxHub", 22, C.navy, true));
             subtitle = W.text(
-                "Runtime Prototype",
-                12.5,
-                "#9BA6B5",
+                "ShortX Runtime Console",
+                11.8,
+                C.secondary,
                 false
             );
             subtitle.setPadding(0, SBH.util.dp(3), 0, 0);
             brand.addView(subtitle);
             bar.addView(brand, W.lp(0, W.WRAP, 1));
 
-            bell = new FrameLayout(SBH.ctx);
-            bell.setBackground(SBH.theme.rounded(C.surface, 14, C.line, 1));
-            bell.addView(
-                W.icon("bell", 30, C.text),
-                W.fp(MATCH, MATCH, Gravity.CENTER)
-            );
-            W.click(bell, function () {
-                SBH.util.toast("暂无新通知");
-            });
             bar.addView(
-                bell,
+                W.label("Runtime 未连接", C.orange, C.orangeSoft),
                 W.margins(
-                    W.lp(SBH.util.dp(48), SBH.util.dp(48)),
+                    W.lp(W.WRAP, SBH.util.dp(30)),
                     0,
                     0,
-                    5,
+                    8,
                     0
                 )
             );
 
-            more = new FrameLayout(SBH.ctx);
-            more.addView(
-                W.icon("more", 30, C.text),
+            closeBox.setBackground(
+                SBH.theme.rounded(C.surface, 13, C.line, 1)
+            );
+            closeBox.addView(
+                W.icon("close", 28, C.text),
                 W.fp(MATCH, MATCH, Gravity.CENTER)
             );
-            W.click(more, function () {
-                SBH.util.toast(SBH.bootstrap.moduleSetVersion);
+            W.click(closeBox, function () {
+                controller.hide();
             });
-            bar.addView(more, W.lp(SBH.util.dp(42), SBH.util.dp(48)));
+            bar.addView(
+                closeBox,
+                W.lp(SBH.util.dp(42), SBH.util.dp(42))
+            );
             return bar;
         };
 
         controller.buildRoot = function () {
             var root = new FrameLayout(SBH.ctx);
             var shell = W.column();
+            var placeholder = W.text(
+                "正在加载 SingBoxHub 界面...",
+                14,
+                C.secondary,
+                false
+            );
 
             root.setBackgroundColor(SBH.util.color(C.bg));
             root.setFocusable(true);
             root.setFocusableInTouchMode(true);
             shell.setBackgroundColor(SBH.util.color(C.bg));
+
             shell.addView(
                 controller.buildTopBar(),
-                W.lp(MATCH, SBH.util.dp(86))
+                W.lp(MATCH, SBH.util.dp(72))
             );
 
             controller.content = new FrameLayout(SBH.ctx);
+            placeholder.setGravity(Gravity.CENTER);
+            controller.content.addView(
+                placeholder,
+                W.fp(MATCH, MATCH, Gravity.CENTER)
+            );
             shell.addView(controller.content, W.lp(MATCH, 0, 1));
 
             controller.nav = new FrameLayout(SBH.ctx);
             shell.addView(
                 controller.nav,
-                W.lp(MATCH, SBH.util.dp(76))
+                W.lp(MATCH, SBH.util.dp(68))
             );
 
             root.addView(shell, W.fp(MATCH, MATCH));
@@ -116,6 +163,7 @@ SBH.versions.window = 1;
                     onKey: function (view, keyCode, event) {
                         if (keyCode === KeyEvent.KEYCODE_BACK &&
                                 event.getAction() === KeyEvent.ACTION_UP) {
+                            hideKeyboard();
                             if (controller.page !== 0) {
                                 controller.showPage(0);
                             } else {
@@ -127,33 +175,6 @@ SBH.versions.window = 1;
                     }
                 }
             ));
-
-            if (SBH.Build.VERSION.SDK_INT >= 20) {
-                root.setOnApplyWindowInsetsListener(new JavaAdapter(
-                    P.android.view.View.OnApplyWindowInsetsListener,
-                    {
-                        onApplyWindowInsets: function (view, insets) {
-                            var top = 0;
-                            var bottom = 0;
-                            try {
-                                if (SBH.Build.VERSION.SDK_INT >= 30) {
-                                    var bars = insets.getInsets(
-                                        P.android.view.WindowInsets.Type
-                                            .systemBars()
-                                    );
-                                    top = bars.top;
-                                    bottom = bars.bottom;
-                                } else {
-                                    top = insets.getSystemWindowInsetTop();
-                                    bottom = insets.getSystemWindowInsetBottom();
-                                }
-                            } catch (ignored) {}
-                            shell.setPadding(0, top, 0, bottom);
-                            return insets;
-                        }
-                    }
-                ));
-            }
             return root;
         };
 
@@ -161,9 +182,7 @@ SBH.versions.window = 1;
             var type = SBH.Build.VERSION.SDK_INT >= 26 ?
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
                 WindowManager.LayoutParams.TYPE_PHONE;
-            var flags =
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
-                WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+            var flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
             var params = new WindowManager.LayoutParams(
                 MATCH,
                 MATCH,
@@ -172,95 +191,153 @@ SBH.versions.window = 1;
                 P.android.graphics.PixelFormat.TRANSLUCENT
             );
             params.gravity = Gravity.TOP | Gravity.START;
+            params.windowAnimations = 0;
             params.softInputMode =
                 WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE |
                 WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN;
-            params.setTitle("SingBoxHub Modular UI");
-            if (SBH.Build.VERSION.SDK_INT >= 28) {
-                try {
-                    params.layoutInDisplayCutoutMode =
-                        WindowManager.LayoutParams
-                            .LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
-                } catch (ignored) {}
-            }
+            params.setTitle("SingBoxHub Full UI");
             return params;
         };
 
-        controller.render = function () {
-            var pageFactory = SBH.navigation.pages[controller.page];
+        controller.renderNow = function (index) {
+            var pageFactory;
             var pageView;
             var navView;
-
-            if (!pageFactory) {
-                controller.page = 0;
-                pageFactory = SBH.navigation.pages[0];
+            if (!controller.attached || controller.rendering) {
+                return;
             }
-            controller.content.removeAllViews();
-            controller.nav.removeAllViews();
-            pageView = pageFactory(controller);
-            navView = SBH.navigation.build(controller);
-            controller.currentPageView = pageView;
-            controller.content.addView(pageView, W.fp(MATCH, MATCH));
-            controller.nav.addView(navView, W.fp(MATCH, MATCH));
+            controller.rendering = true;
+            try {
+                controller.page = Number(index);
+                pageFactory = SBH.navigation.pages[controller.page];
+                if (!pageFactory) {
+                    controller.page = 0;
+                    pageFactory = SBH.navigation.pages[0];
+                }
+                checkpoint("before_page_render", {
+                    targetPage: controller.page
+                });
+                controller.content.removeAllViews();
+                controller.nav.removeAllViews();
+                pageView = pageFactory(controller);
+                navView = SBH.navigation.build(controller);
+                controller.content.addView(
+                    pageView,
+                    W.fp(MATCH, MATCH)
+                );
+                controller.nav.addView(
+                    navView,
+                    W.fp(MATCH, MATCH)
+                );
+                checkpoint("after_page_render", {
+                    renderedPage: controller.page
+                });
+            } catch (error) {
+                controller.content.removeAllViews();
+                controller.content.addView(
+                    W.text(
+                        "界面构建失败: " + SBH.util.errorText(error),
+                        13,
+                        C.coral,
+                        false
+                    ),
+                    W.fp(MATCH, MATCH, Gravity.CENTER)
+                );
+                SBH.log.error("window.render", error);
+                checkpoint("page_render_failed", {
+                    error: SBH.util.errorText(error)
+                });
+            } finally {
+                controller.rendering = false;
+            }
         };
 
         controller.showPage = function (index) {
-            controller.page = Number(index);
-            if (controller.root !== null) {
-                controller.render();
-            }
+            hideKeyboard();
+            SBH.util.runUi(function () {
+                controller.renderNow(index);
+            });
         };
 
         controller.open = function () {
-            if (controller.attached) {
+            SBH.util.runUi(function () {
+                var params;
+                if (controller.attached) {
+                    controller.visible = true;
+                    controller.root.setVisibility(View.VISIBLE);
+                    return;
+                }
+
+                checkpoint("before_build_shell", {});
+                controller.wm = SBH.ctx.getSystemService(
+                    Context.WINDOW_SERVICE
+                );
+                controller.root = controller.buildRoot();
+                params = controller.params();
+                checkpoint("before_add_view", {
+                    flags: Number(params.flags)
+                });
+                controller.wm.addView(controller.root, params);
+                controller.attached = true;
                 controller.visible = true;
-                controller.root.setVisibility(P.android.view.View.VISIBLE);
-                controller.root.requestFocus();
-                return;
-            }
-            controller.wm = SBH.ctx.getSystemService(
-                P.android.content.Context.WINDOW_SERVICE
-            );
-            controller.root = controller.buildRoot();
-            controller.render();
-            controller.wm.addView(controller.root, controller.params());
-            controller.attached = true;
-            controller.visible = true;
-            controller.root.requestFocus();
-            SBH.log.ok("window", "Window attached");
+                checkpoint("after_add_view", {});
+
+                SBH.handler.postDelayed(new JavaAdapter(Runnable, {
+                    run: function () {
+                        if (!controller.attached) {
+                            return;
+                        }
+                        controller.renderNow(controller.page);
+                        try {
+                            controller.root.requestFocus();
+                        } catch (ignoredFocus) {}
+                    }
+                }), 80);
+                SBH.log.ok("window", "Full UI window attached");
+            });
         };
 
         controller.hide = function () {
-            if (!controller.attached) {
-                controller.visible = false;
-                return;
-            }
-            try {
-                controller.wm.removeViewImmediate(controller.root);
-            } catch (error) {
-                SBH.log.warn("window", "removeView failed: " + error);
-            }
-            controller.attached = false;
-            controller.visible = false;
-            controller.root = null;
-            controller.content = null;
-            controller.nav = null;
-            controller.shell = null;
-            if (controller.onHidden) {
+            SBH.util.runUi(function () {
+                var root = controller.root;
+                if (!controller.attached || root === null) {
+                    controller.visible = false;
+                    return;
+                }
+                hideKeyboard();
+                checkpoint("before_remove_view", {});
                 try {
-                    controller.onHidden();
-                } catch (ignored) {}
-            }
+                    controller.wm.removeView(root);
+                } catch (error) {
+                    SBH.log.warn(
+                        "window",
+                        "removeView failed: " + error
+                    );
+                }
+                controller.attached = false;
+                controller.visible = false;
+                controller.root = null;
+                controller.content = null;
+                controller.nav = null;
+                controller.shell = null;
+                checkpoint("after_remove_view", {});
+                if (controller.onHidden) {
+                    try {
+                        controller.onHidden();
+                    } catch (ignoredHidden) {}
+                }
+            });
         };
 
         controller.show = function () {
             if (controller.attached) {
-                controller.visible = true;
-                controller.root.setVisibility(P.android.view.View.VISIBLE);
-                controller.root.requestFocus();
-                return;
+                SBH.util.runUi(function () {
+                    controller.root.setVisibility(View.VISIBLE);
+                    controller.visible = true;
+                });
+            } else {
+                controller.open();
             }
-            controller.open();
         };
 
         controller.toggle = function () {
@@ -279,7 +356,8 @@ SBH.versions.window = 1;
             return {
                 visible: controller.visible,
                 attached: controller.attached,
-                page: controller.page
+                page: controller.page,
+                stage: controller.stage
             };
         };
 
