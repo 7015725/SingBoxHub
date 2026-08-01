@@ -1,10 +1,13 @@
 /*
- * SingBoxHub recovery bootstrap.
+ * SingBoxHub module download and compile probe.
  * ShortX / Rhino ES5.
  *
- * This entry performs recovery only. It does not evaluate modules, register
- * receivers, create views, call WindowManager, execute shell commands or
- * control sing-box.
+ * Safety boundary:
+ * - downloads modules and verifies SHA-256
+ * - compiles module source without evaluating it
+ * - does not register receivers
+ * - does not create Android Views or call WindowManager
+ * - does not execute shell commands or control sing-box
  */
 (function () {
     "use strict";
@@ -18,18 +21,42 @@
     var ReflectArray = P.java.lang.reflect.Array;
     var JavaByte = P.java.lang.Byte;
     var JavaString = P.java.lang.String;
+    var MessageDigest = P.java.security.MessageDigest;
     var System = P.java.lang.System;
+    var RhinoContext = P.org.mozilla.javascript.Context;
 
     var PROJECT = "SingBoxHub";
-    var ENTRY_VERSION = 5;
+    var ENTRY_VERSION = 6;
     var REF = "agent/modular-ui-bootstrap-20260801";
-    var MANIFEST_URL =
+    var RAW_BASE =
         "https://raw.githubusercontent.com/7015725/SingBoxHub/" +
-        REF + "/module-manifest.json";
-    var UNSAFE = {
-        "20260801.01": true,
-        "20260801.02": true
-    };
+        REF + "/";
+    var MODULE_NAMES = [
+        "sbh_01_base.js",
+        "sbh_02_log.js",
+        "sbh_03_files.js",
+        "sbh_04_database.js",
+        "sbh_05_theme.js",
+        "sbh_06_widgets.js",
+        "sbh_07_window.js",
+        "sbh_08_navigation.js",
+        "sbh_09_home.js",
+        "sbh_10_subscriptions.js",
+        "sbh_11_nodes.js",
+        "sbh_12_runtime_logs.js",
+        "sbh_13_automation.js",
+        "sbh_14_runtime_client.js",
+        "sbh_15_app.js"
+    ];
+
+    var CURRENT_STAGE = "initializing";
+    var CURRENT_INDEX = -1;
+    var CURRENT_NAME = null;
+    var STATE_FILE = null;
+
+    function now() {
+        return Number(System.currentTimeMillis());
+    }
 
     function closeQuietly(value) {
         try {
@@ -79,9 +106,7 @@
     }
 
     function readUtf8(file) {
-        return String(
-            new JavaString(readBytes(new FIS(file)), "UTF-8")
-        );
+        return String(new JavaString(readBytes(new FIS(file)), "UTF-8"));
     }
 
     function writeUtf8(file, text) {
@@ -103,49 +128,51 @@
 
     function writeJson(file, value) {
         var temp = new File(file.getAbsolutePath() + ".tmp");
-        if (temp.exists()) {
-            temp.delete();
-        }
         writeUtf8(temp, JSON.stringify(value, null, 2) + "\n");
         if (file.exists() && !file.delete()) {
             temp.delete();
-            throw new Error("Cannot replace: " + file.getAbsolutePath());
+            throw new Error("Cannot replace state file");
         }
         if (!temp.renameTo(file)) {
-            temp.delete();
-            throw new Error("Cannot install: " + file.getAbsolutePath());
-        }
-    }
-
-    function readJson(file) {
-        try {
-            return file.isFile() ? JSON.parse(readUtf8(file)) : null;
-        } catch (ignored) {
-            return null;
+            throw new Error("Cannot install state file");
         }
     }
 
     function deleteTree(file) {
         var children;
-        var index;
-        var ok = true;
+        var i;
         if (!file.exists()) {
             return true;
         }
         if (file.isDirectory()) {
             children = file.listFiles();
             if (children !== null) {
-                for (index = 0; index < children.length; index += 1) {
-                    if (!deleteTree(children[index])) {
-                        ok = false;
-                    }
+                for (i = 0; i < children.length; i += 1) {
+                    deleteTree(children[i]);
                 }
             }
         }
-        if (file.exists() && !file.delete()) {
-            ok = false;
+        return !file.exists() || file.delete();
+    }
+
+    function sha256(text) {
+        var digest = MessageDigest.getInstance("SHA-256");
+        var result = digest.digest(
+            new JavaString(String(text)).getBytes("UTF-8")
+        );
+        var output = [];
+        var i;
+        var value;
+        var hex;
+        for (i = 0; i < result.length; i += 1) {
+            value = Number(result[i]);
+            if (value < 0) {
+                value += 256;
+            }
+            hex = value.toString(16);
+            output.push(hex.length === 1 ? "0" + hex : hex);
         }
-        return ok;
+        return output.join("");
     }
 
     function getContext() {
@@ -165,94 +192,118 @@
                 value = P.android.app.AppGlobals.getInitialApplication();
             } catch (ignored3) {}
         }
-        return value;
+        if (value === null) {
+            throw new Error("Android Context unavailable");
+        }
+        try {
+            return value.getApplicationContext() || value;
+        } catch (ignored4) {
+            return value;
+        }
     }
 
-    function resolveRoot() {
-        var base;
-        var root;
-        var probe;
-        var output = null;
-        var contextValue;
-
+    function shortxRoot() {
         if (typeof shortx === "undefined" ||
                 shortx === null ||
                 typeof shortx.getShortXDir !== "function") {
             throw new Error("shortx.getShortXDir() unavailable");
         }
+        return new File(String(shortx.getShortXDir()));
+    }
 
-        base = new File(String(shortx.getShortXDir()));
-        root = new File(base, "SingBoxHubClient");
-
+    function probeWritable(dir) {
+        var probe = null;
+        var output = null;
         try {
-            ensureDir(root);
-            probe = new File(root, ".recovery-write-probe");
+            ensureDir(dir);
+            probe = new File(dir, ".sbh-probe-" + now());
             output = new FOS(probe, false);
             output.write(new JavaString("ok").getBytes("UTF-8"));
             output.flush();
             closeQuietly(output);
             output = null;
-            if (!probe.delete() && probe.exists()) {
-                throw new Error("Cannot delete recovery probe");
-            }
-            return {
-                root: root,
-                storageMode: "shortx_client"
-            };
-        } catch (primaryError) {
+            return probe.isFile() && (probe.delete() || !probe.exists());
+        } catch (ignored) {
+            return false;
+        } finally {
             closeQuietly(output);
-            contextValue = getContext();
-            if (contextValue === null) {
-                throw primaryError;
-            }
-            root = new File(
-                contextValue.getFilesDir(),
-                "SingBoxHubClient"
-            );
-            ensureDir(root);
-            return {
-                root: root,
-                storageMode: "app_files_fallback"
-            };
+            try {
+                if (probe !== null && probe.exists()) {
+                    probe.delete();
+                }
+            } catch (ignoredDelete) {}
         }
     }
 
-    function fetchManifest() {
+    function resolveRoot(contextValue) {
+        var shortxDir = shortxRoot();
+        var candidates = [
+            {
+                mode: "shortx_client",
+                dir: new File(shortxDir, "SingBoxHubClient")
+            },
+            {
+                mode: "shortx_ui_fallback",
+                dir: new File(shortxDir, "SingBoxHub-UI")
+            }
+        ];
+        var filesDir = null;
+        var i;
+        try {
+            filesDir = contextValue.getFilesDir();
+        } catch (ignored) {}
+        if (filesDir !== null) {
+            candidates.push({
+                mode: "app_files_fallback",
+                dir: new File(filesDir, "SingBoxHubClient")
+            });
+        }
+        for (i = 0; i < candidates.length; i += 1) {
+            if (probeWritable(candidates[i].dir)) {
+                return {
+                    root: candidates[i].dir,
+                    storageMode: candidates[i].mode
+                };
+            }
+        }
+        throw new Error("No writable client directory");
+    }
+
+    function fetchText(relativePath) {
         var connection = null;
         var code;
-        var text;
+        var response;
+        var stream;
         try {
             connection = new URL(
-                MANIFEST_URL +
-                "?recovery=" + ENTRY_VERSION + "-" +
-                Number(System.currentTimeMillis())
+                RAW_BASE + relativePath +
+                "?probe=" + ENTRY_VERSION + "-" + now()
             ).openConnection();
-            connection.setConnectTimeout(12000);
-            connection.setReadTimeout(25000);
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(30000);
             connection.setUseCaches(false);
             connection.setRequestProperty("Accept-Encoding", "identity");
             connection.setRequestProperty("Cache-Control", "no-cache");
-            connection.setRequestProperty("Pragma", "no-cache");
             connection.setRequestProperty(
                 "User-Agent",
-                "SingBoxHub-Recovery/" + ENTRY_VERSION
+                "SingBoxHub-ModuleProbe/" + ENTRY_VERSION
             );
             code = Number(connection.getResponseCode());
-            text = String(new JavaString(
-                readBytes(
-                    code >= 200 && code < 300 ?
-                        connection.getInputStream() :
-                        connection.getErrorStream()
-                ),
-                "UTF-8"
-            ));
+            stream = code >= 200 && code < 300 ?
+                connection.getInputStream() :
+                connection.getErrorStream();
+            response = String(
+                new JavaString(readBytes(stream), "UTF-8")
+            );
             if (code < 200 || code >= 300) {
                 throw new Error(
-                    "Manifest HTTP " + code + ": " +
-                    text.substring(0, 240)
+                    "HTTP " + code + " for " + relativePath
                 );
             }
-            return JSON.parse(text);
+            if (response.length > 2 * 1024 * 1024) {
+                throw new Error("Response too large: " + relativePath);
+            }
+            return response;
         } finally {
             try {
                 if (connection !== null) {
@@ -262,75 +313,168 @@
         }
     }
 
-    function versionOf(pointer) {
-        return pointer && pointer.moduleSetVersion ?
-            String(pointer.moduleSetVersion) : "";
-    }
-
-    function run() {
-        var resolved = resolveRoot();
-        var root = resolved.root;
-        var bootstrap = ensureDir(new File(root, "bootstrap"));
-        var sets = ensureDir(new File(root, "modules/sets"));
-        var activeFile = new File(bootstrap, "active.json");
-        var lastGoodFile = new File(bootstrap, "last_good.json");
-        var endpointFile = new File(root, "cache/control_endpoint.json");
-        var stateFile = new File(bootstrap, "recovery_state.json");
-        var active = readJson(activeFile);
-        var lastGood = readJson(lastGoodFile);
-        var quarantined = [];
-        var version;
-        var manifest;
-        var now = Number(System.currentTimeMillis());
-
-        version = versionOf(active);
-        if (UNSAFE[version]) {
-            activeFile.delete();
-            quarantined.push("active:" + version);
-        }
-
-        version = versionOf(lastGood);
-        if (UNSAFE[version]) {
-            lastGoodFile.delete();
-            quarantined.push("last_good:" + version);
-        }
-
-        for (version in UNSAFE) {
-            if (UNSAFE.hasOwnProperty(version)) {
-                deleteTree(new File(sets, version));
-                quarantined.push("set:" + version);
-            }
-        }
-
-        try {
-            if (endpointFile.exists()) {
-                endpointFile.delete();
-                quarantined.push("stale_control_endpoint");
-            }
-        } catch (ignoredEndpoint) {}
-
-        manifest = fetchManifest();
+    function validateManifest(manifest) {
+        var i;
+        var item;
         if (!manifest ||
                 Number(manifest.schemaVersion) !== 1 ||
                 String(manifest.sourceRef || "") !== REF ||
+                !manifest.moduleSetVersion ||
                 !manifest.modules ||
-                Number(manifest.modules.length) !== 15 ||
-                UNSAFE[String(manifest.moduleSetVersion || "")]) {
-            throw new Error("Unsafe or invalid remote manifest");
+                Number(manifest.modules.length) !== MODULE_NAMES.length) {
+            throw new Error("Invalid module manifest");
         }
+        for (i = 0; i < MODULE_NAMES.length; i += 1) {
+            item = manifest.modules[i];
+            if (!item ||
+                    String(item.name || "") !== MODULE_NAMES[i] ||
+                    String(item.path || "") !==
+                        "src/" + MODULE_NAMES[i] ||
+                    !/^[0-9a-f]{64}$/.test(
+                        String(item.sha256 || "")
+                    )) {
+                throw new Error("Invalid module item: " + i);
+            }
+        }
+        return manifest;
+    }
 
-        writeJson(stateFile, {
+    function checkpoint(value) {
+        if (STATE_FILE !== null) {
+            writeJson(STATE_FILE, value);
+        }
+    }
+
+    function compileOnly(source, fileName) {
+        var current = RhinoContext.getCurrentContext();
+        var wrapped;
+        if (current === null) {
+            throw new Error("Rhino Context unavailable");
+        }
+        wrapped =
+            "(function (SBH) {\n" +
+            String(source) +
+            "\n}(SBH));";
+        current.compileString(wrapped, String(fileName), 1, null);
+    }
+
+    function run() {
+        var startedAt = now();
+        var contextValue = getContext();
+        var resolved = resolveRoot(contextValue);
+        var root = resolved.root;
+        var bootstrap = ensureDir(new File(root, "bootstrap"));
+        var probeBase = ensureDir(new File(root, "modules/probe"));
+        var manifest;
+        var probeDir;
+        var results = [];
+        var item;
+        var source;
+        var actualHash;
+        var moduleStartedAt;
+        var i;
+
+        STATE_FILE = new File(bootstrap, "module_probe_state.json");
+        CURRENT_STAGE = "fetch_manifest";
+        checkpoint({
             schemaVersion: 1,
             entryVersion: ENTRY_VERSION,
-            status: "safe_recovery_ready",
-            remoteModuleSetVersion: String(manifest.moduleSetVersion),
-            storageMode: resolved.storageMode,
-            quarantined: quarantined,
-            modulesDownloaded: false,
+            status: "running",
+            stage: CURRENT_STAGE,
+            modulesEvaluated: false,
+            windowOperationsEnabled: false,
+            updatedAt: now()
+        });
+
+        manifest = validateManifest(
+            JSON.parse(fetchText("module-manifest.json"))
+        );
+        probeDir = new File(
+            probeBase,
+            String(manifest.moduleSetVersion)
+        );
+        deleteTree(probeDir);
+        ensureDir(probeDir);
+
+        for (i = 0; i < manifest.modules.length; i += 1) {
+            item = manifest.modules[i];
+            CURRENT_INDEX = i;
+            CURRENT_NAME = String(item.name);
+            CURRENT_STAGE = "download";
+            moduleStartedAt = now();
+            checkpoint({
+                schemaVersion: 1,
+                entryVersion: ENTRY_VERSION,
+                status: "running",
+                stage: CURRENT_STAGE,
+                moduleIndex: i,
+                moduleName: CURRENT_NAME,
+                completedCount: results.length,
+                moduleSetVersion: String(manifest.moduleSetVersion),
+                modulesEvaluated: false,
+                windowOperationsEnabled: false,
+                updatedAt: now()
+            });
+
+            source = fetchText(String(item.path));
+            CURRENT_STAGE = "hash";
+            actualHash = sha256(source);
+            if (actualHash !== String(item.sha256)) {
+                throw new Error(
+                    "SHA-256 mismatch: " + CURRENT_NAME +
+                    ", expected=" + item.sha256 +
+                    ", actual=" + actualHash
+                );
+            }
+
+            CURRENT_STAGE = "compile";
+            checkpoint({
+                schemaVersion: 1,
+                entryVersion: ENTRY_VERSION,
+                status: "running",
+                stage: CURRENT_STAGE,
+                moduleIndex: i,
+                moduleName: CURRENT_NAME,
+                completedCount: results.length,
+                moduleSetVersion: String(manifest.moduleSetVersion),
+                modulesEvaluated: false,
+                windowOperationsEnabled: false,
+                updatedAt: now()
+            });
+            compileOnly(source, CURRENT_NAME);
+
+            CURRENT_STAGE = "write_probe_copy";
+            writeUtf8(new File(probeDir, CURRENT_NAME), source);
+            results.push({
+                index: i,
+                name: CURRENT_NAME,
+                bytes: Number(
+                    new JavaString(source).getBytes("UTF-8").length
+                ),
+                sha256: actualHash,
+                durationMs: now() - moduleStartedAt
+            });
+        }
+
+        writeUtf8(
+            new File(probeDir, "module-manifest.json"),
+            JSON.stringify(manifest, null, 2) + "\n"
+        );
+
+        CURRENT_STAGE = "complete";
+        checkpoint({
+            schemaVersion: 1,
+            entryVersion: ENTRY_VERSION,
+            status: "module_probe_passed",
+            stage: CURRENT_STAGE,
+            moduleSetVersion: String(manifest.moduleSetVersion),
+            modulesDownloaded: results.length,
+            modulesCompiled: results.length,
             modulesEvaluated: false,
             coordinatorStarted: false,
             windowOperationsEnabled: false,
-            updatedAt: now
+            results: results,
+            completedAt: now()
         });
 
         return {
@@ -338,39 +482,63 @@
             project: PROJECT,
             entryVersion: ENTRY_VERSION,
             started: false,
-            status: "safe_recovery_ready",
-            remoteModuleSetVersion: String(manifest.moduleSetVersion),
+            status: "module_probe_passed",
+            moduleSetVersion: String(manifest.moduleSetVersion),
             safeMode: true,
-            modulesDownloaded: false,
+            modulesDownloaded: results.length,
+            modulesCompiled: results.length,
             modulesEvaluated: false,
             coordinatorStarted: false,
             windowOperationsEnabled: false,
             runtimeAttached: false,
             destructiveOperations: false,
-            quarantined: quarantined,
+            probeDirectory: probeDir.getAbsolutePath(),
+            checkpointPath: STATE_FILE.getAbsolutePath(),
             rootDir: root.getAbsolutePath(),
             storageMode: resolved.storageMode,
-            timestamp: now
+            durationMs: now() - startedAt,
+            results: results,
+            timestamp: now()
         };
     }
 
     try {
         return JSON.stringify(run());
     } catch (fatal) {
+        try {
+            checkpoint({
+                schemaVersion: 1,
+                entryVersion: ENTRY_VERSION,
+                status: "module_probe_failed",
+                stage: CURRENT_STAGE,
+                moduleIndex: CURRENT_INDEX,
+                moduleName: CURRENT_NAME,
+                modulesEvaluated: false,
+                coordinatorStarted: false,
+                windowOperationsEnabled: false,
+                error: errorText(fatal),
+                failedAt: now()
+            });
+        } catch (ignoredCheckpoint) {}
         return JSON.stringify({
             ok: false,
             project: PROJECT,
             entryVersion: ENTRY_VERSION,
             started: false,
-            status: "safe_recovery_failed",
+            status: "module_probe_failed",
             safeMode: true,
+            stage: CURRENT_STAGE,
+            moduleIndex: CURRENT_INDEX,
+            moduleName: CURRENT_NAME,
             modulesEvaluated: false,
             coordinatorStarted: false,
             windowOperationsEnabled: false,
             runtimeAttached: false,
             destructiveOperations: false,
+            checkpointPath: STATE_FILE !== null ?
+                STATE_FILE.getAbsolutePath() : null,
             error: errorText(fatal),
-            timestamp: Number(System.currentTimeMillis())
+            timestamp: now()
         });
     }
 }());
