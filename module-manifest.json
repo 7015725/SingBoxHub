@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "moduleSetVersion": "20260801.06",
+  "moduleSetVersion": "20260802.01",
   "entryMinVersion": 12,
   "sourceRef": "agent/modular-ui-bootstrap-20260801",
   "modules": [
@@ -32,7 +32,7 @@
     {
       "name": "sbh_06_widgets.js",
       "path": "src/sbh_06_widgets.js",
-      "sha256": "abf53600365aae22f16e8056de827d6c1172ecb33b4c06e15ecb216d991a878a"
+      "sha256": "bd2cd831759c368bbd2f04fe5cdc478ecbc1977e41dd8a9193760dead1efc892"
     },
     {
       "name": "sbh_07_window.js",
