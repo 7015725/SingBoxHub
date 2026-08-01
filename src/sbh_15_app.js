@@ -264,6 +264,7 @@ status.runtimeReadOnly = runtime.readOnly !== false;
 status.runtimeTransport = String(runtime.transport || "unavailable");
 status.runtimeState = String(runtime.runtimeState || "unavailable");
 status.runtimeWriteGate = gateState(runtime);
+status.runtimeWriteGateDetails = runtime.writeGate || null;
 status.writeOperationsLocked = true;
 status.destructiveOperations = false;
 status.receiverRegistered = receiverRegistered;
@@ -314,6 +315,7 @@ moduleSetVersion: SBH.bootstrap.moduleSetVersion,
 runtimeAttached: initialRuntime.attached === true,
 runtimeReadOnly: initialRuntime.readOnly !== false,
 runtimeWriteGate: gateState(initialRuntime),
+runtimeWriteGateDetails: initialRuntime.writeGate || null,
 writeOperationsLocked: true,
 destructiveOperations: false,
 createdAt: SBH.util.now()
@@ -344,6 +346,7 @@ runtimeReadOnly: initialRuntime.readOnly !== false,
 runtimeTransport: String(initialRuntime.transport || "unavailable"),
 runtimeState: String(initialRuntime.runtimeState || "unavailable"),
 runtimeWriteGate: gateState(initialRuntime),
+runtimeWriteGateDetails: initialRuntime.writeGate || null,
 writeOperationsLocked: true,
 destructiveOperations: false,
 controlAction: receiverRegistered ? action : null,
