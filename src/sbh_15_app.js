@@ -1,10 +1,16 @@
 /* SingBoxHub app coordinator module. Rhino ES5 only. */
-SBH.versions.app = 2;
+SBH.versions.app = 3;
 
 (function () {
-    var File = Packages.java.io.File;
+    var P = Packages;
+    var Intent = P.android.content.Intent;
+    var IntentFilter = P.android.content.IntentFilter;
+    var BroadcastReceiver = P.android.content.BroadcastReceiver;
+    var Context = P.android.content.Context;
+    var File = P.java.io.File;
 
     function start() {
+        var previous = SBH.global.__SBH_APP__;
         var endpointFile = new File(
             SBH.paths.cacheDir,
             "control_endpoint.json"
@@ -13,56 +19,163 @@ SBH.versions.app = 2;
             SBH.paths.cacheDir,
             "ui_status.json"
         );
-        var now = SBH.util.now();
-        var status = {
-            schemaVersion: 1,
-            command: "safe_bootstrap",
-            updatedAt: now,
-            moduleSetVersion: SBH.bootstrap.moduleSetVersion,
-            runtimeAttached: false,
-            safeMode: true,
-            coordinatorStarted: false,
-            windowOperationsEnabled: false,
-            uiVisible: false,
-            attached: false,
-            page: 0
-        };
+        var token = SBH.util.randomToken();
+        var action = "com.singboxhub.control." + token;
+        var controller;
+        var receiver;
+        var stopped = false;
+        var receiverRegistered = false;
 
-        /*
-         * A previous device reboot may leave a stale endpoint file. Remove it
-         * without broadcasting or touching WindowManager.
-         */
+        try {
+            if (previous && typeof previous.stop === "function") {
+                previous.stop();
+            }
+        } catch (ignoredPrevious) {}
+
         try {
             if (endpointFile.exists()) {
                 endpointFile.delete();
             }
-        } catch (ignoredDelete) {}
+        } catch (ignoredEndpoint) {}
 
-        SBH.files.writeJson(statusFile, status);
+        controller = SBH.window.createController();
 
-        SBH.global.__SBH_APP__ = {
-            safeMode: true,
-            stop: function () {
-                return true;
+        function writeStatus(command) {
+            var status = controller.status();
+            status.schemaVersion = 1;
+            status.command = command || "status";
+            status.updatedAt = SBH.util.now();
+            status.moduleSetVersion = SBH.bootstrap.moduleSetVersion;
+            status.runtimeAttached = false;
+            status.receiverRegistered = receiverRegistered;
+            try {
+                SBH.files.writeJson(statusFile, status);
+            } catch (ignoredWrite) {}
+            return status;
+        }
+
+        function stopCoordinator() {
+            if (stopped) {
+                return;
             }
+            stopped = true;
+            try {
+                controller.stop();
+            } catch (ignoredStop) {}
+            try {
+                if (receiverRegistered) {
+                    SBH.ctx.unregisterReceiver(receiver);
+                    receiverRegistered = false;
+                }
+            } catch (ignoredReceiver) {}
+            try {
+                if (endpointFile.exists()) {
+                    endpointFile.delete();
+                }
+            } catch (ignoredDelete) {}
+            writeStatus("stop_ui");
+            SBH.log.info("app", "Coordinator stopped");
+        }
+
+        receiver = new JavaAdapter(BroadcastReceiver, {
+            onReceive: function (contextValue, intent) {
+                var command;
+                var receivedToken;
+                if (intent === null || stopped) {
+                    return;
+                }
+                receivedToken = String(
+                    intent.getStringExtra("token") || ""
+                );
+                if (receivedToken !== token) {
+                    SBH.log.warn("app", "Rejected control token");
+                    return;
+                }
+                command = String(
+                    intent.getStringExtra("command") || "status"
+                );
+                if (command === "show") {
+                    controller.show();
+                } else if (command === "hide") {
+                    controller.hide();
+                } else if (command === "toggle") {
+                    controller.toggle();
+                } else if (command === "stop_ui") {
+                    stopCoordinator();
+                    return;
+                }
+                writeStatus(command);
+            }
+        });
+
+        try {
+            if (SBH.Build.VERSION.SDK_INT >= 33) {
+                SBH.ctx.registerReceiver(
+                    receiver,
+                    new IntentFilter(action),
+                    Context.RECEIVER_NOT_EXPORTED
+                );
+            } else {
+                SBH.ctx.registerReceiver(
+                    receiver,
+                    new IntentFilter(action)
+                );
+            }
+            receiverRegistered = true;
+        } catch (receiverError) {
+            SBH.log.warn(
+                "app",
+                "Control receiver unavailable: " + receiverError
+            );
+        }
+
+        if (receiverRegistered) {
+            SBH.files.writeJson(endpointFile, {
+                schemaVersion: 1,
+                action: action,
+                token: token,
+                commands: [
+                    "show",
+                    "hide",
+                    "toggle",
+                    "status",
+                    "stop_ui"
+                ],
+                moduleSetVersion: SBH.bootstrap.moduleSetVersion,
+                createdAt: SBH.util.now()
+            });
+        }
+
+        controller.onHidden = function () {
+            writeStatus("hidden");
         };
 
-        SBH.log.warn(
-            "app",
-            "Safe bootstrap active; coordinator and WindowManager are disabled"
-        );
+        controller.open();
+        writeStatus("opening");
+
+        SBH.global.__SBH_APP__ = {
+            controller: controller,
+            receiver: receiver,
+            stop: stopCoordinator,
+            action: action,
+            token: token
+        };
+
+        SBH.log.ok("app", "Full UI coordinator started");
 
         return {
             ok: true,
             started: true,
-            status: "safe_bootstrap_ready",
-            safeMode: true,
-            coordinatorStarted: false,
-            windowOperationsEnabled: false,
-            uiVisible: false,
+            status: "full_ui_opening",
+            safeMode: false,
+            coordinatorStarted: true,
+            receiverRegistered: receiverRegistered,
+            windowOperationsEnabled: true,
+            uiVisible: true,
             runtimeAttached: false,
-            controlAction: null,
-            controlEndpointPath: null,
+            controlAction: receiverRegistered ? action : null,
+            controlEndpointPath: receiverRegistered ?
+                endpointFile.getAbsolutePath() : null,
             moduleSetVersion: SBH.bootstrap.moduleSetVersion
         };
     }
