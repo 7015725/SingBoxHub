@@ -1,5 +1,5 @@
 /* SingBoxHub Runtime Client adapter. Rhino ES5 only. */
-SBH.versions.runtimeClient = 2;
+SBH.versions.runtimeClient = 3;
 
 (function () {
     var P = Packages;
@@ -85,6 +85,40 @@ SBH.versions.runtimeClient = 2;
         return String(map[key] || "0") === "1";
     }
 
+    function stateName(discovered, coreRunning, rootGranted) {
+        if (coreRunning) {
+            return "running";
+        }
+        if (discovered) {
+            return "stopped";
+        }
+        if (rootGranted) {
+            return "incomplete";
+        }
+        return "unavailable";
+    }
+
+    function buildHandshake(status) {
+        return {
+            schemaVersion: 1,
+            ok: status.attached === true,
+            attached: status.attached === true,
+            transport: status.transport,
+            readOnly: true,
+            runtimeState: status.runtimeState,
+            endpointReady: status.components &&
+                status.components.controlEndpoint === true,
+            capabilities: [
+                "runtime.handshake",
+                "runtime.status",
+                "core.status",
+                "route.status"
+            ],
+            destructiveOperations: false,
+            checkedAt: status.timestamp
+        };
+    }
+
     function inspect(force) {
         var current = SBH.util.now();
         var root;
@@ -95,6 +129,8 @@ SBH.versions.runtimeClient = 2;
         var fields;
         var pid;
         var discovered;
+        var transportAvailable;
+        var runtimeState;
 
         if (!force && cachedStatus !== null && current - cachedAt < CACHE_MS) {
             return cachedStatus;
@@ -112,18 +148,22 @@ SBH.versions.runtimeClient = 2;
             }
             pid = /^\d+$/.test(String(map.corePid || "")) ?
                 Number(map.corePid) : null;
+            transportAvailable = shell.code === 0 && Number(map.uid) === 0;
             discovered = boolValue(map, "runtimeRoot") &&
                 boolValue(map, "controller") &&
                 boolValue(map, "coreBinary");
+            runtimeState = stateName(discovered, pid !== null, transportAvailable);
 
             cachedStatus = {
-                ok: shell.code === 0 && Number(map.uid) === 0,
-                attached: shell.code === 0 && Number(map.uid) === 0,
+                ok: transportAvailable,
+                attached: transportAvailable && discovered,
+                transportAvailable: transportAvailable,
                 transport: "shortx_shell_readonly",
                 readOnly: true,
                 shellUid: Number(map.uid),
                 rootGranted: Number(map.uid) === 0,
                 runtimeRoot: String(root.getAbsolutePath()),
+                runtimeState: runtimeState,
                 discovered: discovered,
                 coreRunning: pid !== null,
                 corePid: pid,
@@ -144,13 +184,16 @@ SBH.versions.runtimeClient = 2;
                 destructiveOperations: false,
                 timestamp: current
             };
+            cachedStatus.handshake = buildHandshake(cachedStatus);
         } catch (error) {
             cachedStatus = {
                 ok: false,
                 attached: false,
+                transportAvailable: false,
                 transport: "shortx_shell_readonly",
                 readOnly: true,
                 rootGranted: false,
+                runtimeState: "unavailable",
                 discovered: false,
                 coreRunning: false,
                 corePid: null,
@@ -159,9 +202,14 @@ SBH.versions.runtimeClient = 2;
                 destructiveOperations: false,
                 timestamp: current
             };
+            cachedStatus.handshake = buildHandshake(cachedStatus);
         }
         cachedAt = current;
         return cachedStatus;
+    }
+
+    function resultState(status) {
+        return status.coreRunning ? "running" : "stopped";
     }
 
     function request(requestValue) {
@@ -171,14 +219,28 @@ SBH.versions.runtimeClient = 2;
             String(requestValue.requestId) : "";
         var before = inspect(true);
 
+        if (command === "runtime.handshake") {
+            return {
+                ok: before.attached,
+                requestId: requestId,
+                code: before.attached ?
+                    "READ_ONLY_HANDSHAKE_OK" : "RUNTIME_NOT_ATTACHED",
+                stateBefore: resultState(before),
+                stateAfter: resultState(before),
+                message: before.attached ?
+                    "Runtime 只读握手成功" : "Runtime 未完成只读接入",
+                data: before.handshake
+            };
+        }
+
         if (command === "runtime.status" || command === "core.status" ||
                 command === "route.status") {
             return {
                 ok: before.ok,
                 requestId: requestId,
                 code: before.ok ? "READ_ONLY_STATUS" : "RUNTIME_STATUS_UNAVAILABLE",
-                stateBefore: before.coreRunning ? "running" : "stopped",
-                stateAfter: before.coreRunning ? "running" : "stopped",
+                stateBefore: resultState(before),
+                stateAfter: resultState(before),
                 message: before.ok ? "只读 Runtime 状态已刷新" : "无法读取 Runtime 状态",
                 data: before
             };
@@ -188,15 +250,15 @@ SBH.versions.runtimeClient = 2;
             ok: false,
             requestId: requestId,
             code: "READ_ONLY_CLIENT",
-            stateBefore: before.coreRunning ? "running" : "stopped",
-            stateAfter: before.coreRunning ? "running" : "stopped",
-            message: "只读 Runtime Client 已接入，写操作尚未开放",
+            stateBefore: resultState(before),
+            stateAfter: resultState(before),
+            message: "当前阶段仅开放握手与状态查询，写操作未开放",
             data: before
         };
     }
 
     SBH.runtime = {
-        attached: true,
+        attached: false,
         transport: "shortx_shell_readonly",
         readOnly: true,
         request: request,
@@ -205,6 +267,15 @@ SBH.versions.runtimeClient = 2;
         },
         refresh: function () {
             return inspect(true);
+        },
+        handshake: function () {
+            return request({
+                requestId: "sbh-handshake-" + SBH.util.now(),
+                command: "runtime.handshake"
+            });
+        },
+        isAttached: function () {
+            return inspect(false).attached === true;
         }
     };
 }());
