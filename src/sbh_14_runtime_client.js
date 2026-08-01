@@ -56,7 +56,7 @@ SBH.versions.runtimeClient = 2;
             "TOYBOX=/system/bin/toybox",
             "ROOT=" + shellQuote(rootPath),
             "CORE=\"$ROOT/bin/sing-box\"",
-            "test_value() { if [ \"$1\" = x ]; then printf '0'; else printf '1'; fi; }",
+            "test_value() { if [ \"$1\" = x0 ]; then printf '1'; else printf '0'; fi; }",
             "printf 'uid\\t%s\\n' \"$($TOYBOX id -u 2>/dev/null)\"",
             "[ -d \"$ROOT\" ]; printf 'runtimeRoot\\t%s\\n' \"$(test_value x$?)\"",
             "[ -x \"$ROOT/bin/singboxhub-runtime\" ]; printf 'controller\\t%s\\n' \"$(test_value x$?)\"",
