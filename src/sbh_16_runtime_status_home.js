@@ -1,5 +1,5 @@
 /* SingBoxHub read-only Runtime status home overlay. Rhino ES5 only. */
-SBH.versions.runtimeStatusHome = 1;
+SBH.versions.runtimeStatusHome = 2;
 
 (function () {
     var P = Packages;
@@ -28,10 +28,19 @@ SBH.versions.runtimeStatusHome = 1;
         });
         SBH.log.info("runtime", result.code + ": " + result.message);
         SBH.util.toast(result.message);
+        return result;
     }
 
     function componentText(value) {
         return value ? "已就绪" : "缺失";
+    }
+
+    function endpointText(runtime) {
+        var components = runtime.components || {};
+        if (!runtime.attached) {
+            return "未接入";
+        }
+        return components.controlEndpoint ? "已发现" : "未生成";
     }
 
     function buildHero(controller) {
@@ -53,22 +62,23 @@ SBH.versions.runtimeStatusHome = 1;
 
         if (runtime.coreRunning) {
             title = "Runtime 运行中";
-            description = "生产 sing-box 已运行，PID " + String(runtime.corePid);
+            description = "只读握手正常，sing-box PID " + String(runtime.corePid);
             accent = C.green;
             soft = C.greenSoft;
-        } else if (runtime.discovered) {
-            title = "Runtime 已安装";
+        } else if (runtime.attached) {
+            title = "Runtime 已只读接入";
             description = "生产组件已发现，核心当前未运行";
             accent = C.blue;
             soft = C.blueSoft;
         } else if (runtime.rootGranted) {
-            title = "Runtime 不完整";
-            description = "已取得只读权限，但关键生产组件缺失";
+            title = "Runtime 接入不完整";
+            description = "Shell 权限正常，但关键生产组件缺失";
             accent = C.orange;
             soft = C.orangeSoft;
         } else {
             title = "Runtime 状态不可用";
-            description = runtime.error ? String(runtime.error) : "ShortX Shell 状态读取失败";
+            description = runtime.error ?
+                String(runtime.error) : "ShortX Shell 状态读取失败";
             accent = C.coral;
             soft = C.coralSoft;
         }
@@ -107,7 +117,11 @@ SBH.versions.runtimeStatusHome = 1;
         description.setPadding(0, SBH.util.dp(8), 0, 0);
         statusBox.addView(description);
         head.addView(statusBox, W.lp(0, W.WRAP, 1));
-        head.addView(W.label("只读已接入", C.green, C.greenSoft));
+        head.addView(W.label(
+            runtime.attached ? "只读握手" : "等待接入",
+            runtime.attached ? C.green : C.orange,
+            runtime.attached ? C.greenSoft : C.orangeSoft
+        ));
         body.addView(head);
 
         body.addView(infoLine(
@@ -124,21 +138,21 @@ SBH.versions.runtimeStatusHome = 1;
         ));
         body.addView(infoLine(
             "magic",
-            "管理 API",
-            componentText(components.managementApi),
-            components.managementApi ? C.green : C.orange
+            "Runtime 控制端点",
+            endpointText(runtime),
+            components.controlEndpoint ? C.green : C.orange
         ));
 
         actions.setGravity(Gravity.CENTER);
         actions.addView(
-            W.button("启动", "play", C.green, C.greenSoft, function () {
-                request("core.start");
+            W.button("握手", "shield", C.green, C.greenSoft, function () {
+                request("runtime.handshake");
             }),
             W.lp(0, SBH.util.dp(48), 1)
         );
         actions.addView(
-            W.button("停止", "stop", C.coral, C.coralSoft, function () {
-                request("core.stop");
+            W.button("状态", "logs", C.blue, C.blueSoft, function () {
+                request("runtime.status");
             }),
             W.margins(W.lp(0, SBH.util.dp(48), 1), 8, 0, 8, 0)
         );
