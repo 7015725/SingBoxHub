@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "moduleSetVersion": "20260802.01",
-  "entryMinVersion": 12,
-  "sourceRef": "agent/modular-ui-bootstrap-20260801",
+  "moduleSetVersion": "20260802.02",
+  "entryMinVersion": 13,
+  "sourceRef": "agent/runtime-client-readonly-20260802",
   "modules": [
     {
       "name": "sbh_01_base.js",
@@ -78,6 +78,11 @@
       "name": "sbh_15_app.js",
       "path": "src/sbh_15_app.js",
       "sha256": "250174d1dd015e18c8c36cbaf30a31fffed98981511784782b5c09101ddfa3c5"
+    },
+    {
+      "name": "sbh_16_runtime_status_home.js",
+      "path": "src/sbh_16_runtime_status_home.js",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
     }
   ]
 }
