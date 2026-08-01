@@ -1,14 +1,17 @@
-/* SingBoxHub Runtime Client adapter. Rhino ES5 only. */
-SBH.versions.runtimeClient = 3;
+/* SingBoxHub asynchronous read-only Runtime Client. Rhino ES5 only. */
+SBH.versions.runtimeClient = 4;
 
 (function () {
     var P = Packages;
     var File = P.java.io.File;
-    var ShellCommand = P.tornaco.apps.shortx.core.proto.action.ShellCommand;
-
-    var CACHE_MS = 1500;
+    var ShellCommand =
+        P.tornaco.apps.shortx.core.proto.action.ShellCommand;
+    var MAX_ENDPOINT_BYTES = 65536;
     var cachedAt = 0;
     var cachedStatus = null;
+    var cachedEndpointProbe = null;
+    var refreshInFlight = false;
+    var refreshCallbacks = [];
 
     function shellQuote(value) {
         return "'" + String(value).replace(/'/g, "'\\''") + "'";
@@ -16,7 +19,8 @@ SBH.versions.runtimeClient = 3;
 
     function contextValue(data, key) {
         var value = data.get(String(key));
-        return value === null || value === undefined ? "" : String(value);
+        return value === null || value === undefined ?
+            "" : String(value);
     }
 
     function executeShell(command) {
@@ -47,7 +51,10 @@ SBH.versions.runtimeClient = 3;
                 typeof shortx.getShortXDir !== "function") {
             throw new Error("shortx.getShortXDir() unavailable");
         }
-        return new File(String(shortx.getShortXDir()), "SingBoxHub");
+        return new File(
+            String(shortx.getShortXDir()),
+            "SingBoxHub"
+        );
     }
 
     function buildCommand(root) {
@@ -56,6 +63,7 @@ SBH.versions.runtimeClient = 3;
             "TOYBOX=/system/bin/toybox",
             "ROOT=" + shellQuote(rootPath),
             "CORE=\"$ROOT/bin/sing-box\"",
+            "EP=\"$ROOT/runtime/control/control_endpoint.json\"",
             "test_value() { if [ \"$1\" = x0 ]; then printf '1'; else printf '0'; fi; }",
             "printf 'uid\\t%s\\n' \"$($TOYBOX id -u 2>/dev/null)\"",
             "[ -d \"$ROOT\" ]; printf 'runtimeRoot\\t%s\\n' \"$(test_value x$?)\"",
@@ -68,14 +76,37 @@ SBH.versions.runtimeClient = 3;
             "[ -f \"$ROOT/metadata/runtime.meta.json\" ]; printf 'runtimeMeta\\t%s\\n' \"$(test_value x$?)\"",
             "[ -f \"$ROOT/metadata/package-policy.active.json\" ]; printf 'activePolicy\\t%s\\n' \"$(test_value x$?)\"",
             "[ -f \"$ROOT/manager/policy-manager-state.json\" ]; printf 'managerState\\t%s\\n' \"$(test_value x$?)\"",
-            "[ -f \"$ROOT/runtime/control/control_endpoint.json\" ]; printf 'controlEndpoint\\t%s\\n' \"$(test_value x$?)\"",
+            "[ -f \"$EP\" ]; printf 'controlEndpoint\\t%s\\n' \"$(test_value x$?)\"",
             "PID_VALUE=",
             "for PROC in /proc/[0-9]*; do",
             "  [ -L \"$PROC/exe\" ] || continue",
             "  EXE=\"$($TOYBOX readlink \"$PROC/exe\" 2>/dev/null)\"",
             "  if [ \"$EXE\" = \"$CORE\" ]; then PID_VALUE=\"${PROC##*/}\"; break; fi",
             "done",
-            "printf 'corePid\\t%s\\n' \"$PID_VALUE\""
+            "printf 'corePid\\t%s\\n' \"$PID_VALUE\"",
+            "if [ -f \"$EP\" ]; then",
+            "  printf 'epExists\\t1\\n'",
+            "  printf 'epUid\\t%s\\n' \"$($TOYBOX stat -c '%u' \"$EP\" 2>/dev/null)\"",
+            "  printf 'epGid\\t%s\\n' \"$($TOYBOX stat -c '%g' \"$EP\" 2>/dev/null)\"",
+            "  printf 'epMode\\t%s\\n' \"$($TOYBOX stat -c '%a' \"$EP\" 2>/dev/null)\"",
+            "  printf 'epSize\\t%s\\n' \"$($TOYBOX stat -c '%s' \"$EP\" 2>/dev/null)\"",
+            "  printf 'epMtime\\t%s\\n' \"$($TOYBOX stat -c '%Y' \"$EP\" 2>/dev/null)\"",
+            "  printf 'epReal\\t%s\\n' \"$($TOYBOX readlink -f \"$EP\" 2>/dev/null)\"",
+            "  if [ -x /system/bin/sha256sum ]; then",
+            "    EP_SHA=\"$(/system/bin/sha256sum \"$EP\" 2>/dev/null | $TOYBOX awk '{print $1}')\"",
+            "  else",
+            "    EP_SHA=\"$($TOYBOX sha256sum \"$EP\" 2>/dev/null | $TOYBOX awk '{print $1}')\"",
+            "  fi",
+            "  printf 'epSha\\t%s\\n' \"$EP_SHA\"",
+            "  EP_SIZE=\"$($TOYBOX stat -c '%s' \"$EP\" 2>/dev/null)\"",
+            "  if [ -n \"$EP_SIZE\" ] && [ \"$EP_SIZE\" -gt 0 ] && [ \"$EP_SIZE\" -le " + MAX_ENDPOINT_BYTES + " ]; then",
+            "    EP_DATA=\"$($TOYBOX base64 \"$EP\" 2>/dev/null | $TOYBOX tr -d '\\r\\n')\"",
+            "    printf 'epData\\t%s\\n' \"$EP_DATA\"",
+            "  fi",
+            "else",
+            "  printf 'epExists\\t0\\n'",
+            "fi",
+            "printf 'epNow\\t%s\\n' \"$($TOYBOX date +%s 2>/dev/null)\""
         ];
         return "/system/bin/toybox timeout 8 /system/bin/sh -c " +
             shellQuote(lines.join("\n"));
@@ -119,44 +150,96 @@ SBH.versions.runtimeClient = 3;
         };
     }
 
-    function inspect(force) {
+    function pendingStatus() {
+        var root = null;
+        try {
+            root = getRuntimeRoot();
+        } catch (ignored) {}
+        return {
+            ok: false,
+            attached: false,
+            checking: true,
+            refreshInFlight: refreshInFlight,
+            transportAvailable: false,
+            transport: "shortx_shell_readonly",
+            readOnly: true,
+            rootGranted: false,
+            runtimeRoot: root === null ?
+                "" : String(root.getAbsolutePath()),
+            runtimeState: "checking",
+            discovered: false,
+            coreRunning: false,
+            corePid: null,
+            components: {},
+            destructiveOperations: false,
+            timestamp: SBH.util.now()
+        };
+    }
+
+    function parseMap(text) {
+        var map = {};
+        var lines = String(text || "").split(/\r?\n/);
+        var i;
+        var fields;
+        for (i = 0; i < lines.length; i += 1) {
+            fields = lines[i].split("\t");
+            if (fields.length >= 2) {
+                map[String(fields[0])] =
+                    String(fields.slice(1).join("\t"));
+            }
+        }
+        return map;
+    }
+
+    function updateEndpointProbe(map) {
+        cachedEndpointProbe = {
+            exists: String(map.epExists || "0") === "1",
+            uid: String(map.epUid || ""),
+            gid: String(map.epGid || ""),
+            mode: String(map.epMode || ""),
+            size: String(map.epSize || ""),
+            mtime: String(map.epMtime || ""),
+            real: String(map.epReal || ""),
+            sha: String(map.epSha || ""),
+            data: String(map.epData || ""),
+            now: String(map.epNow || ""),
+            capturedAt: SBH.util.now()
+        };
+    }
+
+    function inspectBlocking() {
         var current = SBH.util.now();
         var root;
         var shell;
-        var lines;
-        var map = {};
-        var i;
-        var fields;
+        var map;
         var pid;
         var discovered;
         var transportAvailable;
         var runtimeState;
 
-        if (!force && cachedStatus !== null && current - cachedAt < CACHE_MS) {
-            return cachedStatus;
-        }
-
         try {
             root = getRuntimeRoot();
             shell = executeShell(buildCommand(root));
-            lines = String(shell.out || "").split(/\r?\n/);
-            for (i = 0; i < lines.length; i += 1) {
-                fields = lines[i].split("\t");
-                if (fields.length >= 2) {
-                    map[String(fields[0])] = String(fields.slice(1).join("\t"));
-                }
-            }
+            map = parseMap(shell.out);
+            updateEndpointProbe(map);
             pid = /^\d+$/.test(String(map.corePid || "")) ?
                 Number(map.corePid) : null;
-            transportAvailable = shell.code === 0 && Number(map.uid) === 0;
+            transportAvailable =
+                shell.code === 0 && Number(map.uid) === 0;
             discovered = boolValue(map, "runtimeRoot") &&
                 boolValue(map, "controller") &&
                 boolValue(map, "coreBinary");
-            runtimeState = stateName(discovered, pid !== null, transportAvailable);
+            runtimeState = stateName(
+                discovered,
+                pid !== null,
+                transportAvailable
+            );
 
             cachedStatus = {
                 ok: transportAvailable,
                 attached: transportAvailable && discovered,
+                checking: false,
+                refreshInFlight: refreshInFlight,
                 transportAvailable: transportAvailable,
                 transport: "shortx_shell_readonly",
                 readOnly: true,
@@ -186,9 +269,12 @@ SBH.versions.runtimeClient = 3;
             };
             cachedStatus.handshake = buildHandshake(cachedStatus);
         } catch (error) {
+            cachedEndpointProbe = null;
             cachedStatus = {
                 ok: false,
                 attached: false,
+                checking: false,
+                refreshInFlight: refreshInFlight,
                 transportAvailable: false,
                 transport: "shortx_shell_readonly",
                 readOnly: true,
@@ -208,40 +294,91 @@ SBH.versions.runtimeClient = 3;
         return cachedStatus;
     }
 
+    function statusSnapshot() {
+        var value = cachedStatus || pendingStatus();
+        value.refreshInFlight = refreshInFlight;
+        value.cacheAgeMs = cachedAt > 0 ?
+            Math.max(0, SBH.util.now() - cachedAt) : null;
+        return value;
+    }
+
+    function finishRefresh(value, error, elapsed) {
+        var callbacks = refreshCallbacks;
+        var i;
+        refreshCallbacks = [];
+        refreshInFlight = false;
+        if (value) {
+            value.refreshInFlight = false;
+            value.refreshDurationMs = Number(elapsed || 0);
+        }
+        for (i = 0; i < callbacks.length; i += 1) {
+            try {
+                callbacks[i](value || statusSnapshot(), error, elapsed);
+            } catch (callbackError) {
+                SBH.log.error("runtime.callback", callbackError);
+            }
+        }
+    }
+
+    function refreshAsync(callback) {
+        if (typeof callback === "function") {
+            refreshCallbacks.push(callback);
+        }
+        if (refreshInFlight) {
+            return false;
+        }
+        refreshInFlight = true;
+        SBH.util.runBg(
+            function () {
+                return inspectBlocking();
+            },
+            finishRefresh,
+            "SingBoxHub-runtime-refresh"
+        );
+        return true;
+    }
+
     function resultState(status) {
         return status.coreRunning ? "running" : "stopped";
     }
 
-    function request(requestValue) {
+    function requestBlocking(requestValue) {
         var command = requestValue && requestValue.command ?
             String(requestValue.command) : "";
         var requestId = requestValue && requestValue.requestId ?
             String(requestValue.requestId) : "";
-        var before = inspect(true);
+        var before = inspectBlocking();
 
         if (command === "runtime.handshake") {
             return {
                 ok: before.attached,
                 requestId: requestId,
                 code: before.attached ?
-                    "READ_ONLY_HANDSHAKE_OK" : "RUNTIME_NOT_ATTACHED",
+                    "READ_ONLY_HANDSHAKE_OK" :
+                    "RUNTIME_NOT_ATTACHED",
                 stateBefore: resultState(before),
                 stateAfter: resultState(before),
                 message: before.attached ?
-                    "Runtime 只读握手成功" : "Runtime 未完成只读接入",
+                    "Runtime 只读握手成功" :
+                    "Runtime 未完成只读接入",
                 data: before.handshake
             };
         }
 
-        if (command === "runtime.status" || command === "core.status" ||
+        if (command === "runtime.status" ||
+                command === "core.status" ||
                 command === "route.status") {
             return {
                 ok: before.ok,
                 requestId: requestId,
-                code: before.ok ? "READ_ONLY_STATUS" : "RUNTIME_STATUS_UNAVAILABLE",
+                code: before.ok ?
+                    "READ_ONLY_STATUS" :
+                    "RUNTIME_STATUS_UNAVAILABLE",
                 stateBefore: resultState(before),
                 stateAfter: resultState(before),
-                message: before.ok ? "只读 Runtime 状态已刷新" : "无法读取 Runtime 状态",
+                message: before.ok ?
+                    "只读 Runtime 状态已刷新" :
+                    "无法读取 Runtime 状态",
                 data: before
             };
         }
@@ -257,25 +394,49 @@ SBH.versions.runtimeClient = 3;
         };
     }
 
+    function requestAsync(requestValue, callback) {
+        SBH.util.runBg(
+            function () {
+                return requestBlocking(requestValue);
+            },
+            callback,
+            "SingBoxHub-runtime-request"
+        );
+        return true;
+    }
+
     SBH.runtime = {
         attached: false,
         transport: "shortx_shell_readonly",
         readOnly: true,
-        request: request,
-        status: function () {
-            return inspect(false);
-        },
-        refresh: function () {
-            return inspect(true);
-        },
+
+        request: requestBlocking,
+
+        requestAsync: requestAsync,
+
+        status: statusSnapshot,
+
+        refresh: inspectBlocking,
+
+        refreshAsync: refreshAsync,
+
         handshake: function () {
-            return request({
+            return requestBlocking({
                 requestId: "sbh-handshake-" + SBH.util.now(),
                 command: "runtime.handshake"
             });
         },
+
         isAttached: function () {
-            return inspect(false).attached === true;
+            return statusSnapshot().attached === true;
+        },
+
+        isRefreshing: function () {
+            return refreshInFlight;
+        },
+
+        endpointProbe: function () {
+            return cachedEndpointProbe;
         }
     };
 }());
