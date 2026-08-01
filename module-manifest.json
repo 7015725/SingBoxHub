@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "moduleSetVersion": "20260802.08",
+  "moduleSetVersion": "20260802.09",
   "entryMinVersion": 13,
   "sourceRef": "agent/runtime-client-readonly-20260802",
   "modules": [
@@ -83,6 +83,11 @@
       "name": "sbh_16_runtime_status_home.js",
       "path": "src/sbh_16_runtime_status_home.js",
       "sha256": "e2e10cfaf3dbfac93dc3bd6a6bc7a5e34afc346ba540acf96e07cb19414a7b02"
+    },
+    {
+      "name": "sbh_17_protocol_discovery.js",
+      "path": "src/sbh_17_protocol_discovery.js",
+      "sha256": "8768218697d004cc6b1573799d87ef460b84f1b2ce7987e2dbad5899d9970c42"
     }
   ]
 }
