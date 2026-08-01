@@ -1,1 +1,232 @@
-SBH.versions.app = 4; (function () { var P = Packages; var IntentFilter = P.android.content.IntentFilter; var BroadcastReceiver = P.android.content.BroadcastReceiver; var Context = P.android.content.Context; var File = P.java.io.File; function start() { var previous = SBH.global.__SBH_APP__; var endpointFile = new File( SBH.paths.cacheDir, "control_endpoint.json" ); var statusFile = new File( SBH.paths.cacheDir, "ui_status.json" ); var token = SBH.util.randomToken(); var action = "com.singboxhub.control." + token; var controller; var receiver = null; var receiverRegistered = false; var stopped = false; try { if (previous && typeof previous.stop === "function") { previous.stop(); } } catch (ignoredPrevious) {} try { if (endpointFile.exists()) { endpointFile.delete(); } } catch (ignoredEndpoint) {} controller = SBH.window.createController(); function writeStatus(command) { var status = controller.status(); status.schemaVersion = 1; status.command = command || "status"; status.updatedAt = SBH.util.now(); status.moduleSetVersion = SBH.bootstrap.moduleSetVersion; status.runtimeAttached = false; status.receiverRegistered = receiverRegistered; try { SBH.files.writeJson(statusFile, status); } catch (ignoredWrite) {} return status; } function removeEndpoint() { try { if (endpointFile.exists()) { endpointFile.delete(); } } catch (ignoredDelete) {} } function stopCoordinator() { if (stopped) { return true; } stopped = true; try { controller.stop(); } catch (ignoredStop) {} try { if (receiverRegistered && receiver !== null) { SBH.ctx.unregisterReceiver(receiver); } } catch (ignoredReceiver) {} receiverRegistered = false; removeEndpoint(); writeStatus("stop_ui"); SBH.log.info("app", "Coordinator stopped"); return true; } receiver = new JavaAdapter(BroadcastReceiver, { onReceive: function (contextValue, intent) { var command; var receivedToken; if (intent === null || stopped) { return; } receivedToken = String( intent.getStringExtra("token") || "" ); if (receivedToken !== token) { SBH.log.warn( "app", "Rejected control token" ); return; } command = String( intent.getStringExtra("command") || "status" ); if (command === "show") { controller.show(); } else if (command === "hide") { controller.hide(); } else if (command === "toggle") { controller.toggle(); } else if (command === "stop_ui") { stopCoordinator(); return; } writeStatus(command); } }); try { if (SBH.Build.VERSION.SDK_INT >= 33) { SBH.ctx.registerReceiver( receiver, new IntentFilter(action), Context.RECEIVER_NOT_EXPORTED ); } else { SBH.ctx.registerReceiver( receiver, new IntentFilter(action) ); } receiverRegistered = true; } catch (receiverError) { receiverRegistered = false; SBH.log.warn( "app", "Control receiver unavailable: " + receiverError ); } if (receiverRegistered) { try { SBH.files.writeJson(endpointFile, { schemaVersion: 1, action: action, token: token, commands: [ "show", "hide", "toggle", "status", "stop_ui" ], moduleSetVersion: SBH.bootstrap.moduleSetVersion, createdAt: SBH.util.now() }); } catch (endpointError) { receiverRegistered = false; try { SBH.ctx.unregisterReceiver(receiver); } catch (ignoredUnregister) {} removeEndpoint(); SBH.log.warn( "app", "Control endpoint unavailable: " + endpointError ); } } controller.onHidden = function () { writeStatus("hidden"); }; SBH.global.__SBH_APP__ = { controller: controller, receiver: receiver, stop: stopCoordinator, action: receiverRegistered ? action : null, token: receiverRegistered ? token : null }; controller.open(); writeStatus("opening"); SBH.log.ok("app", "Full UI coordinator started"); return { ok: true, started: true, status: "full_ui_opening", safeMode: false, coordinatorStarted: true, receiverRegistered: receiverRegistered, windowOperationsEnabled: true, uiVisible: true, runtimeAttached: false, controlAction: receiverRegistered ? action : null, controlEndpointPath: receiverRegistered ? endpointFile.getAbsolutePath() : null, moduleSetVersion: SBH.bootstrap.moduleSetVersion }; } SBH.app = { start: start }; }());
+/* SingBoxHub application coordinator. Rhino ES5 only. */
+SBH.versions.app = 5;
+
+(function () {
+    var P = Packages;
+    var IntentFilter = P.android.content.IntentFilter;
+    var BroadcastReceiver = P.android.content.BroadcastReceiver;
+    var Context = P.android.content.Context;
+    var File = P.java.io.File;
+
+    function runtimeStatus(force) {
+        try {
+            if (SBH.runtime && typeof SBH.runtime.refresh === "function" && force) {
+                return SBH.runtime.refresh();
+            }
+            if (SBH.runtime && typeof SBH.runtime.status === "function") {
+                return SBH.runtime.status();
+            }
+        } catch (error) {
+            SBH.log.warn("app", "Runtime status unavailable: " + error);
+        }
+        return {
+            attached: false,
+            readOnly: true,
+            transport: "unavailable",
+            runtimeState: "unavailable",
+            destructiveOperations: false
+        };
+    }
+
+    function start() {
+        var previous = SBH.global.__SBH_APP__;
+        var endpointFile = new File(
+            SBH.paths.cacheDir,
+            "control_endpoint.json"
+        );
+        var statusFile = new File(
+            SBH.paths.cacheDir,
+            "ui_status.json"
+        );
+        var token = SBH.util.randomToken();
+        var action = "com.singboxhub.control." + token;
+        var controller;
+        var receiver = null;
+        var receiverRegistered = false;
+        var stopped = false;
+        var initialRuntime;
+
+        try {
+            if (previous && typeof previous.stop === "function") {
+                previous.stop();
+            }
+        } catch (ignoredPrevious) {}
+
+        try {
+            if (endpointFile.exists()) {
+                endpointFile.delete();
+            }
+        } catch (ignoredEndpoint) {}
+
+        initialRuntime = runtimeStatus(true);
+        controller = SBH.window.createController();
+
+        function writeStatus(command) {
+            var status = controller.status();
+            var runtime = runtimeStatus(false);
+            status.schemaVersion = 2;
+            status.command = command || "status";
+            status.updatedAt = SBH.util.now();
+            status.moduleSetVersion = SBH.bootstrap.moduleSetVersion;
+            status.runtimeAttached = runtime.attached === true;
+            status.runtimeReadOnly = runtime.readOnly !== false;
+            status.runtimeTransport = String(runtime.transport || "unavailable");
+            status.runtimeState = String(runtime.runtimeState || "unavailable");
+            status.destructiveOperations = false;
+            status.receiverRegistered = receiverRegistered;
+            try {
+                SBH.files.writeJson(statusFile, status);
+            } catch (ignoredWrite) {}
+            return status;
+        }
+
+        function removeEndpoint() {
+            try {
+                if (endpointFile.exists()) {
+                    endpointFile.delete();
+                }
+            } catch (ignoredDelete) {}
+        }
+
+        function stopCoordinator() {
+            if (stopped) {
+                return true;
+            }
+            stopped = true;
+            try {
+                controller.stop();
+            } catch (ignoredStop) {}
+            try {
+                if (receiverRegistered && receiver !== null) {
+                    SBH.ctx.unregisterReceiver(receiver);
+                }
+            } catch (ignoredReceiver) {}
+            receiverRegistered = false;
+            removeEndpoint();
+            writeStatus("stop_ui");
+            SBH.log.info("app", "Coordinator stopped");
+            return true;
+        }
+
+        receiver = new JavaAdapter(BroadcastReceiver, {
+            onReceive: function (contextValue, intent) {
+                var command;
+                var receivedToken;
+                if (intent === null || stopped) {
+                    return;
+                }
+                receivedToken = String(intent.getStringExtra("token") || "");
+                if (receivedToken !== token) {
+                    SBH.log.warn("app", "Rejected control token");
+                    return;
+                }
+                command = String(intent.getStringExtra("command") || "status");
+                if (command === "show") {
+                    controller.show();
+                } else if (command === "hide") {
+                    controller.hide();
+                } else if (command === "toggle") {
+                    controller.toggle();
+                } else if (command === "refresh_runtime") {
+                    runtimeStatus(true);
+                } else if (command === "stop_ui") {
+                    stopCoordinator();
+                    return;
+                }
+                writeStatus(command);
+            }
+        });
+
+        try {
+            if (SBH.Build.VERSION.SDK_INT >= 33) {
+                SBH.ctx.registerReceiver(
+                    receiver,
+                    new IntentFilter(action),
+                    Context.RECEIVER_NOT_EXPORTED
+                );
+            } else {
+                SBH.ctx.registerReceiver(receiver, new IntentFilter(action));
+            }
+            receiverRegistered = true;
+        } catch (receiverError) {
+            receiverRegistered = false;
+            SBH.log.warn(
+                "app",
+                "Control receiver unavailable: " + receiverError
+            );
+        }
+
+        if (receiverRegistered) {
+            try {
+                SBH.files.writeJson(endpointFile, {
+                    schemaVersion: 2,
+                    action: action,
+                    token: token,
+                    commands: [
+                        "show",
+                        "hide",
+                        "toggle",
+                        "status",
+                        "refresh_runtime",
+                        "stop_ui"
+                    ],
+                    moduleSetVersion: SBH.bootstrap.moduleSetVersion,
+                    runtimeAttached: initialRuntime.attached === true,
+                    runtimeReadOnly: initialRuntime.readOnly !== false,
+                    createdAt: SBH.util.now()
+                });
+            } catch (endpointError) {
+                receiverRegistered = false;
+                try {
+                    SBH.ctx.unregisterReceiver(receiver);
+                } catch (ignoredUnregister) {}
+                removeEndpoint();
+                SBH.log.warn(
+                    "app",
+                    "Control endpoint unavailable: " + endpointError
+                );
+            }
+        }
+
+        controller.onHidden = function () {
+            writeStatus("hidden");
+        };
+
+        SBH.global.__SBH_APP__ = {
+            controller: controller,
+            receiver: receiver,
+            stop: stopCoordinator,
+            action: receiverRegistered ? action : null,
+            token: receiverRegistered ? token : null,
+            runtime: SBH.runtime
+        };
+
+        controller.open();
+        writeStatus("opening");
+        SBH.log.ok("app", "Full UI coordinator started");
+
+        return {
+            ok: true,
+            started: true,
+            status: "full_ui_opening",
+            safeMode: false,
+            coordinatorStarted: true,
+            receiverRegistered: receiverRegistered,
+            windowOperationsEnabled: true,
+            uiVisible: true,
+            runtimeAttached: initialRuntime.attached === true,
+            runtimeReadOnly: initialRuntime.readOnly !== false,
+            runtimeTransport: String(initialRuntime.transport || "unavailable"),
+            runtimeState: String(initialRuntime.runtimeState || "unavailable"),
+            destructiveOperations: false,
+            controlAction: receiverRegistered ? action : null,
+            controlEndpointPath: receiverRegistered ?
+                endpointFile.getAbsolutePath() : null,
+            moduleSetVersion: SBH.bootstrap.moduleSetVersion
+        };
+    }
+
+    SBH.app = {
+        start: start
+    };
+}());
