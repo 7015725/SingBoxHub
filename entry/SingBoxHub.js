@@ -2,14 +2,10 @@
  * SingBoxHub modular bootstrap.
  * ShortX / Rhino ES5.
  *
- * Responsibilities:
- * - fetch and validate module manifest
- * - download modules to an immutable local set
- * - verify SHA-256 and Rhino syntax
- * - load only local verified modules
- * - fall back to last known good set
+ * The UI client uses its own writable storage root. It never writes into the
+ * production Runtime directory named SingBoxHub, which may be root-owned.
  *
- * This entry does not execute shell commands or control sing-box.
+ * This entry performs no shell command and does not control sing-box.
  */
 (function (global) {
     "use strict";
@@ -29,11 +25,12 @@
     var ContextClass = P.org.mozilla.javascript.Context;
 
     var PROJECT = "SingBoxHub";
-    var ENTRY_VERSION = 3;
+    var ENTRY_VERSION = 4;
     var OWNER = "7015725";
     var REPO = "SingBoxHub";
     var DEFAULT_REF = "agent/modular-ui-bootstrap-20260801";
     var MANIFEST_PATH = "module-manifest.json";
+    var PATH_DIAGNOSTICS = [];
     var MODULE_NAMES = [
         "sbh_01_base.js",
         "sbh_02_log.js",
@@ -118,6 +115,93 @@
             throw new Error("Not a directory: " + dir.getAbsolutePath());
         }
         return dir;
+    }
+
+    function probeWritableDir(dir, label) {
+        var out = null;
+        var probe = null;
+        try {
+            ensureDir(dir);
+            probe = new File(
+                dir,
+                ".sbh-write-probe-" + Number(System.currentTimeMillis())
+            );
+            out = new FOS(probe, false);
+            out.write(new JavaString("ok").getBytes("UTF-8"));
+            out.flush();
+            try {
+                out.getFD().sync();
+            } catch (ignoredSync) {}
+            closeQuietly(out);
+            out = null;
+            if (!probe.isFile()) {
+                throw new Error("Probe file not created");
+            }
+            if (!probe.delete() && probe.exists()) {
+                throw new Error("Probe file cannot be removed");
+            }
+            PATH_DIAGNOSTICS.push({
+                label: label,
+                path: dir.getAbsolutePath(),
+                writable: true
+            });
+            return true;
+        } catch (error) {
+            PATH_DIAGNOSTICS.push({
+                label: label,
+                path: dir.getAbsolutePath(),
+                writable: false,
+                error: errorText(error)
+            });
+            return false;
+        } finally {
+            closeQuietly(out);
+            try {
+                if (probe !== null && probe.exists()) {
+                    probe.delete();
+                }
+            } catch (ignoredDelete) {}
+        }
+    }
+
+    function resolveClientRoot(contextValue) {
+        var base = shortxRoot();
+        var candidates = [
+            {
+                label: "shortx_client",
+                file: new File(base, "SingBoxHubClient")
+            },
+            {
+                label: "shortx_ui_fallback",
+                file: new File(base, "SingBoxHub-UI")
+            }
+        ];
+        var filesDir = null;
+        var i;
+
+        try {
+            filesDir = contextValue.getFilesDir();
+        } catch (ignored) {}
+        if (filesDir !== null) {
+            candidates.push({
+                label: "app_files_fallback",
+                file: new File(filesDir, "SingBoxHubClient")
+            });
+        }
+
+        for (i = 0; i < candidates.length; i += 1) {
+            if (probeWritableDir(candidates[i].file, candidates[i].label)) {
+                return {
+                    root: candidates[i].file,
+                    storageMode: candidates[i].label
+                };
+            }
+        }
+
+        throw new Error(
+            "No writable SingBoxHub client directory: " +
+            JSON.stringify(PATH_DIAGNOSTICS)
+        );
     }
 
     function readBytes(stream) {
@@ -220,7 +304,7 @@
         var digest = MessageDigest.getInstance("SHA-256");
         var bytes = new JavaString(String(text)).getBytes("UTF-8");
         var result = digest.digest(bytes);
-        var out = [];
+        var output = [];
         var i;
         var value;
         var hex;
@@ -230,9 +314,9 @@
                 value += 256;
             }
             hex = value.toString(16);
-            out.push(hex.length === 1 ? "0" + hex : hex);
+            output.push(hex.length === 1 ? "0" + hex : hex);
         }
-        return out.join("");
+        return output.join("");
     }
 
     function encodeSegment(value) {
@@ -308,6 +392,7 @@
         var seen = {};
         var i;
         var item;
+        var itemPath;
         if (!manifest ||
                 Number(manifest.schemaVersion) !== 1 ||
                 !manifest.moduleSetVersion ||
@@ -326,9 +411,11 @@
         }
         for (i = 0; i < manifest.modules.length; i += 1) {
             item = manifest.modules[i];
+            itemPath = String(item && item.path || "");
             if (!item ||
                     String(item.name) !== MODULE_NAMES[i] ||
-                    !item.path ||
+                    itemPath.indexOf("src/") !== 0 ||
+                    itemPath.indexOf("..") >= 0 ||
                     !/^[0-9a-f]{64}$/.test(String(item.sha256 || ""))) {
                 throw new Error("Invalid module item at " + i);
             }
@@ -342,20 +429,26 @@
 
     function compileCheck(source, name) {
         var current = ContextClass.getCurrentContext();
-        var wrapped =
+        var wrapped;
+        if (current === null) {
+            throw new Error("Rhino Context unavailable for compile check");
+        }
+        wrapped =
             "(function (SBH) {\n" +
             String(source) +
             "\n}(SBH));";
         current.compileString(wrapped, String(name), 1, null);
     }
 
-    function paths() {
-        var root = ensureDir(new File(shortxRoot(), "SingBoxHub"));
+    function paths(contextValue) {
+        var resolved = resolveClientRoot(contextValue);
+        var root = resolved.root;
         var bootstrap = ensureDir(new File(root, "bootstrap"));
         var modules = ensureDir(new File(root, "modules"));
         var sets = ensureDir(new File(modules, "sets"));
         return {
             rootDir: root,
+            storageMode: resolved.storageMode,
             bootstrapDir: bootstrap,
             modulesDir: modules,
             setsDir: sets,
@@ -403,6 +496,7 @@
             pathSet.setsDir,
             version + ".tmp-" + Number(System.currentTimeMillis())
         );
+        var previousDir;
         var i;
         var item;
         var source;
@@ -434,7 +528,7 @@
                 new File(stageDir, "module-manifest.json"),
                 JSON.stringify(manifest, null, 2) + "\n"
             );
-            var previousDir = new File(
+            previousDir = new File(
                 pathSet.setsDir,
                 version + ".previous-" + Number(System.currentTimeMillis())
             );
@@ -486,6 +580,7 @@
                 entryVersion: ENTRY_VERSION,
                 moduleSetVersion: String(version),
                 sourceRef: DEFAULT_REF,
+                storageMode: pathSet.storageMode,
                 sync: syncInfo
             },
             paths: {
@@ -536,7 +631,7 @@
 
     function run() {
         var contextValue = getContext();
-        var pathSet = paths();
+        var pathSet = paths(contextValue);
         var active = readJson(pathSet.activeFile, null);
         var lastGood = readJson(pathSet.lastGoodFile, null);
         var syncInfo = {
@@ -545,7 +640,8 @@
             downloadedCount: 0,
             fallback: false,
             warning: null,
-            sourceRef: DEFAULT_REF
+            sourceRef: DEFAULT_REF,
+            storageMode: pathSet.storageMode
         };
         var candidateVersion = "";
         var remoteManifest;
@@ -604,12 +700,14 @@
             schemaVersion: 1,
             moduleSetVersion: candidateVersion,
             sourceRef: DEFAULT_REF,
+            storageMode: pathSet.storageMode,
             activatedAt: now
         });
         writeJson(pathSet.lastGoodFile, {
             schemaVersion: 1,
             moduleSetVersion: candidateVersion,
             sourceRef: DEFAULT_REF,
+            storageMode: pathSet.storageMode,
             successfulStarts: Number(
                 lastGood && lastGood.moduleSetVersion === candidateVersion ?
                     lastGood.successfulStarts || 0 : 0
@@ -619,6 +717,8 @@
         writeJson(pathSet.updateStateFile, {
             schemaVersion: 1,
             updatedAt: now,
+            storageMode: pathSet.storageMode,
+            pathDiagnostics: PATH_DIAGNOSTICS,
             sync: syncInfo
         });
 
@@ -636,6 +736,8 @@
             sync: syncInfo,
             app: loaded.result,
             rootDir: pathSet.rootDir.getAbsolutePath(),
+            storageMode: pathSet.storageMode,
+            pathDiagnostics: PATH_DIAGNOSTICS,
             timestamp: now
         };
     }
@@ -652,6 +754,7 @@
             runtimeAttached: false,
             destructiveOperations: false,
             error: errorText(fatal),
+            pathDiagnostics: PATH_DIAGNOSTICS,
             timestamp: Number(System.currentTimeMillis())
         });
     }
