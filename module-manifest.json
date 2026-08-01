@@ -72,7 +72,7 @@
     {
       "name": "sbh_14_runtime_client.js",
       "path": "src/sbh_14_runtime_client.js",
-      "sha256": "2b9ccd9cd02c84926c5901868a90398e7d12c4f247527e2e3edda09ab036e0c2"
+      "sha256": "40dcd052cf8104ab08a0656d947466d0b73c38c3b8b63296c609a647a54d586e"
     },
     {
       "name": "sbh_15_app.js",
@@ -82,7 +82,7 @@
     {
       "name": "sbh_16_runtime_status_home.js",
       "path": "src/sbh_16_runtime_status_home.js",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "sha256": "6cb0912e89331fefb3f815ac5088fb4d7d56e33137ac78ad10e0a4ff69a3be89"
     }
   ]
 }
