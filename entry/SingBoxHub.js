@@ -1,2 +1,426 @@
-/* SingBoxHub minimal WindowManager probe. Rhino ES5 only. */
-(function () { "use strict"; var P = Packages; var File = P.java.io.File; var FOS = P.java.io.FileOutputStream; var JString = P.java.lang.String; var System = P.java.lang.System; var Handler = P.android.os.Handler; var Looper = P.android.os.Looper; var CountDownLatch = P.java.util.concurrent.CountDownLatch; var TimeUnit = P.java.util.concurrent.TimeUnit; var AtomicReference = P.java.util.concurrent.atomic.AtomicReference; var Runnable = P.java.lang.Runnable; var Context = P.android.content.Context; var Settings = P.android.provider.Settings; var WM = P.android.view.WindowManager; var Gravity = P.android.view.Gravity; var PixelFormat = P.android.graphics.PixelFormat; var Color = P.android.graphics.Color; var GradientDrawable = P.android.graphics.drawable.GradientDrawable; var TextView = P.android.widget.TextView; var ENTRY_VERSION = 9; var STATE_FILE = null; var STAGE = "initializing"; function now() { return Number(System.currentTimeMillis()); } function errorText(error) { try { if (error && error.javaException) { return String(error.javaException.getClass().getName()) + ": " + String(error); } } catch (ignored) {} return String(error); } function closeQuietly(value) { try { if (value !== null) { value.close(); } } catch (ignored) {} } function ensureDir(dir) { if (!dir.exists() && !dir.mkdirs() && !dir.isDirectory()) { throw new Error("Cannot create directory: " + dir); } if (!dir.isDirectory()) { throw new Error("Not a directory: " + dir); } return dir; } function writeJson(file, value) { var temp = new File(file.getAbsolutePath() + ".tmp"); var out = null; ensureDir(file.getParentFile()); try { out = new FOS(temp, false); out.write( new JString(JSON.stringify(value, null, 2) + "\n") .getBytes("UTF-8") ); out.flush(); try { out.getFD().sync(); } catch (ignoredSync) {} } finally { closeQuietly(out); } if (file.exists() && !file.delete()) { temp.delete(); throw new Error("Cannot replace checkpoint"); } if (!temp.renameTo(file)) { throw new Error("Cannot install checkpoint"); } } function checkpoint(status, extra) { var value = extra || {}; value.schemaVersion = 1; value.entryVersion = ENTRY_VERSION; value.status = status; value.stage = STAGE; value.updatedAt = now(); if (STATE_FILE !== null) { writeJson(STATE_FILE, value); } } function getContext() { var value = null; try { if (typeof context !== "undefined" && context !== null) { value = context; } } catch (ignored1) {} if (value === null) { try { value = P.android.app.ActivityThread.currentApplication(); } catch (ignored2) {} } if (value === null) { try { value = P.android.app.AppGlobals.getInitialApplication(); } catch (ignored3) {} } if (value === null) { throw new Error("Android Context unavailable"); } try { return value.getApplicationContext() || value; } catch (ignored4) { return value; } } function getRoot() { var base; var first; var second; if (typeof shortx === "undefined" || shortx === null || typeof shortx.getShortXDir !== "function") { throw new Error("shortx.getShortXDir() unavailable"); } base = new File(String(shortx.getShortXDir())); first = new File(base, "SingBoxHubClient"); second = new File(base, "SingBoxHub-UI"); try { return { root: ensureDir(first), storageMode: "shortx_client" }; } catch (ignored) { return { root: ensureDir(second), storageMode: "shortx_ui_fallback" }; } } function dp(ctx, value) { var density = Number( ctx.getResources().getDisplayMetrics().density || 1 ); return Math.max(1, Math.round(Number(value) * density)); } function canOverlay(ctx) { if (P.android.os.Build.VERSION.SDK_INT < 23) { return true; } try { return Boolean(Settings.canDrawOverlays(ctx)); } catch (ignored) { return null; } } function run() { var startedAt = now(); var ctx = getContext(); var resolved = getRoot(); var root = resolved.root; var handler = new Handler(Looper.getMainLooper()); var latch = new CountDownLatch(1); var resultRef = new AtomicReference(); var errorRef = new AtomicReference(); var packageName = String(ctx.getPackageName()); var pid = Number(P.android.os.Process.myPid()); var uid = Number(P.android.os.Process.myUid()); var overlayPermission = canOverlay(ctx); var posted; var completed; STATE_FILE = new File( ensureDir(new File(root, "bootstrap")), "minimal_window_probe_state.json" ); if (Looper.myLooper() === Looper.getMainLooper()) { throw new Error("Probe cannot block Android main thread"); } STAGE = "before_post"; checkpoint("running", { packageName: packageName, pid: pid, uid: uid, overlayPermission: overlayPermission, windowAdded: false, windowRemoved: false }); posted = handler.post(new JavaAdapter(Runnable, { run: function () { var wm = null; var view = null; var params = null; var background; var type; var flags; var added = false; try { STAGE = "create_view"; checkpoint("running", { viewCreated: false, windowAdded: false, windowRemoved: false }); view = new TextView(ctx); background = new GradientDrawable(); background.setColor(Color.parseColor("#FFFDF9")); background.setCornerRadius(dp(ctx, 18)); background.setStroke( dp(ctx, 1), Color.parseColor("#D8E2DD") ); view.setBackground(background); view.setText("SingBoxHub\n最小窗口探测"); view.setTextColor(Color.parseColor("#17213A")); view.setTextSize(16); view.setGravity(Gravity.CENTER); if (P.android.os.Build.VERSION.SDK_INT >= 21) { view.setElevation(dp(ctx, 6)); } type = P.android.os.Build.VERSION.SDK_INT >= 26 ? WM.LayoutParams.TYPE_APPLICATION_OVERLAY : WM.LayoutParams.TYPE_PHONE; flags = WM.LayoutParams.FLAG_NOT_FOCUSABLE | WM.LayoutParams.FLAG_NOT_TOUCHABLE | WM.LayoutParams.FLAG_NOT_TOUCH_MODAL; params = new WM.LayoutParams( dp(ctx, 220), dp(ctx, 96), type, flags, PixelFormat.TRANSLUCENT ); params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL; params.y = dp(ctx, 120); params.windowAnimations = 0; params.setTitle("SingBoxHub Minimal Window Probe"); wm = ctx.getSystemService(Context.WINDOW_SERVICE); STAGE = "before_add_view"; checkpoint("running", { viewCreated: true, windowAdded: false, windowRemoved: false, widthPx: Number(params.width), heightPx: Number(params.height), type: Number(params.type), flags: Number(params.flags) }); wm.addView(view, params); added = true; STAGE = "after_add_view"; checkpoint("running", { viewCreated: true, windowAdded: true, windowRemoved: false, visibleDurationMs: 1800 }); handler.postDelayed(new JavaAdapter(Runnable, { run: function () { try { STAGE = "before_remove_view"; checkpoint("running", { viewCreated: true, windowAdded: true, windowRemoved: false }); wm.removeView(view); added = false; STAGE = "after_remove_view"; checkpoint("minimal_window_probe_passed", { viewCreated: true, windowAdded: true, windowRemoved: true }); resultRef.set({ type: Number(params.type), flags: Number(params.flags) }); } catch (removeError) { errorRef.set( "removeView: " + errorText(removeError) ); try { if (added) { wm.removeViewImmediate(view); } } catch (ignoredCleanup) {} } finally { latch.countDown(); } } }), 1800); } catch (addError) { errorRef.set("addView: " + errorText(addError)); try { if (added && wm !== null && view !== null) { wm.removeViewImmediate(view); } } catch (ignoredCleanup2) {} latch.countDown(); } } })); if (!posted) { throw new Error("Failed to post probe to main thread"); } STAGE = "waiting_for_completion"; completed = Boolean(latch.await(12, TimeUnit.SECONDS)); if (!completed) { throw new Error("Probe timed out"); } if (errorRef.get() !== null) { throw new Error(String(errorRef.get())); } if (resultRef.get() === null) { throw new Error("Probe returned no result"); } STAGE = "complete"; checkpoint("minimal_window_probe_passed", { packageName: packageName, pid: pid, uid: uid, overlayPermission: overlayPermission, viewCreated: true, windowAdded: true, windowRemoved: true, receiverRegistered: false, insetsListenerRegistered: false, fullScreen: false }); return { ok: true, project: "SingBoxHub", entryVersion: ENTRY_VERSION, started: false, status: "minimal_window_probe_passed", safeMode: true, modulesEvaluated: false, appStartInvoked: false, coordinatorStarted: false, receiverRegistered: false, insetsListenerRegistered: false, viewsCreated: 1, windowOperationsEnabled: true, fullScreen: false, windowAdded: true, windowRemoved: true, visibleDurationMs: 1800, windowWidthDp: 220, windowHeightDp: 96, windowType: Number(resultRef.get().type), windowFlags: Number(resultRef.get().flags), packageName: packageName, pid: pid, uid: uid, overlayPermission: overlayPermission, runtimeAttached: false, destructiveOperations: false, checkpointPath: STATE_FILE.getAbsolutePath(), rootDir: root.getAbsolutePath(), storageMode: resolved.storageMode, durationMs: now() - startedAt, timestamp: now() }; } try { return JSON.stringify(run()); } catch (fatal) { try { checkpoint("minimal_window_probe_failed", { error: errorText(fatal), windowAdded: STAGE === "after_add_view" || STAGE === "before_remove_view", windowRemoved: false, fullScreen: false }); } catch (ignoredCheckpoint) {} return JSON.stringify({ ok: false, project: "SingBoxHub", entryVersion: ENTRY_VERSION, started: false, status: "minimal_window_probe_failed", stage: STAGE, safeMode: true, fullScreen: false, runtimeAttached: false, destructiveOperations: false, error: errorText(fatal), timestamp: now() }); } }());
+/*
+ * SingBoxHub full-screen WindowManager probe.
+ * ShortX / Rhino ES5.
+ *
+ * Safety boundary:
+ * - creates one full-screen TextView only
+ * - keeps the window non-focusable, non-touchable and non-touch-modal
+ * - no modules, receiver, Insets listener, Canvas, input field or animation
+ * - removes the window automatically after 1800 ms
+ */
+(function () {
+    "use strict";
+
+    var P = Packages;
+    var File = P.java.io.File;
+    var FOS = P.java.io.FileOutputStream;
+    var JavaString = P.java.lang.String;
+    var System = P.java.lang.System;
+    var Handler = P.android.os.Handler;
+    var Looper = P.android.os.Looper;
+    var CountDownLatch = P.java.util.concurrent.CountDownLatch;
+    var TimeUnit = P.java.util.concurrent.TimeUnit;
+    var AtomicReference = P.java.util.concurrent.atomic.AtomicReference;
+    var Runnable = P.java.lang.Runnable;
+    var Context = P.android.content.Context;
+    var Settings = P.android.provider.Settings;
+    var WindowManager = P.android.view.WindowManager;
+    var Gravity = P.android.view.Gravity;
+    var PixelFormat = P.android.graphics.PixelFormat;
+    var Color = P.android.graphics.Color;
+    var TextView = P.android.widget.TextView;
+
+    var ENTRY_VERSION = 10;
+    var STATE_FILE = null;
+    var STAGE = "initializing";
+
+    function now() {
+        return Number(System.currentTimeMillis());
+    }
+
+    function closeQuietly(value) {
+        try {
+            if (value !== null && value !== undefined) {
+                value.close();
+            }
+        } catch (ignored) {}
+    }
+
+    function errorText(error) {
+        try {
+            if (error && error.javaException) {
+                return String(error.javaException.getClass().getName()) +
+                    ": " + String(error);
+            }
+        } catch (ignored) {}
+        return String(error);
+    }
+
+    function ensureDir(dir) {
+        if (!dir.exists() && !dir.mkdirs() && !dir.isDirectory()) {
+            throw new Error(
+                "Cannot create directory: " + dir.getAbsolutePath()
+            );
+        }
+        if (!dir.isDirectory()) {
+            throw new Error("Not a directory: " + dir.getAbsolutePath());
+        }
+        return dir;
+    }
+
+    function writeJson(file, value) {
+        var temp = new File(file.getAbsolutePath() + ".tmp");
+        var output = null;
+        ensureDir(file.getParentFile());
+        try {
+            output = new FOS(temp, false);
+            output.write(
+                new JavaString(JSON.stringify(value, null, 2) + "\n")
+                    .getBytes("UTF-8")
+            );
+            output.flush();
+            try {
+                output.getFD().sync();
+            } catch (ignoredSync) {}
+        } finally {
+            closeQuietly(output);
+        }
+        if (file.exists() && !file.delete()) {
+            temp.delete();
+            throw new Error("Cannot replace checkpoint");
+        }
+        if (!temp.renameTo(file)) {
+            throw new Error("Cannot install checkpoint");
+        }
+    }
+
+    function checkpoint(status, extra) {
+        var value = extra || {};
+        value.schemaVersion = 1;
+        value.entryVersion = ENTRY_VERSION;
+        value.status = status;
+        value.stage = STAGE;
+        value.updatedAt = now();
+        if (STATE_FILE !== null) {
+            writeJson(STATE_FILE, value);
+        }
+    }
+
+    function getContext() {
+        var value = null;
+        try {
+            if (typeof context !== "undefined" && context !== null) {
+                value = context;
+            }
+        } catch (ignored1) {}
+        if (value === null) {
+            try {
+                value = P.android.app.ActivityThread.currentApplication();
+            } catch (ignored2) {}
+        }
+        if (value === null) {
+            try {
+                value = P.android.app.AppGlobals.getInitialApplication();
+            } catch (ignored3) {}
+        }
+        if (value === null) {
+            throw new Error("Android Context unavailable");
+        }
+        try {
+            return value.getApplicationContext() || value;
+        } catch (ignored4) {
+            return value;
+        }
+    }
+
+    function getRoot() {
+        var base;
+        var first;
+        var second;
+        if (typeof shortx === "undefined" ||
+                shortx === null ||
+                typeof shortx.getShortXDir !== "function") {
+            throw new Error("shortx.getShortXDir() unavailable");
+        }
+        base = new File(String(shortx.getShortXDir()));
+        first = new File(base, "SingBoxHubClient");
+        second = new File(base, "SingBoxHub-UI");
+        try {
+            return {
+                root: ensureDir(first),
+                storageMode: "shortx_client"
+            };
+        } catch (ignored) {
+            return {
+                root: ensureDir(second),
+                storageMode: "shortx_ui_fallback"
+            };
+        }
+    }
+
+    function canOverlay(ctx) {
+        if (P.android.os.Build.VERSION.SDK_INT < 23) {
+            return true;
+        }
+        try {
+            return Boolean(Settings.canDrawOverlays(ctx));
+        } catch (ignored) {
+            return null;
+        }
+    }
+
+    function run() {
+        var startedAt = now();
+        var ctx = getContext();
+        var resolved = getRoot();
+        var root = resolved.root;
+        var handler = new Handler(Looper.getMainLooper());
+        var latch = new CountDownLatch(1);
+        var resultRef = new AtomicReference();
+        var errorRef = new AtomicReference();
+        var packageName = String(ctx.getPackageName());
+        var pid = Number(P.android.os.Process.myPid());
+        var uid = Number(P.android.os.Process.myUid());
+        var overlayPermission = canOverlay(ctx);
+        var posted;
+        var completed;
+
+        STATE_FILE = new File(
+            ensureDir(new File(root, "bootstrap")),
+            "full_screen_window_probe_state.json"
+        );
+
+        if (Looper.myLooper() === Looper.getMainLooper()) {
+            throw new Error("Probe cannot block Android main thread");
+        }
+
+        STAGE = "before_post";
+        checkpoint("running", {
+            packageName: packageName,
+            pid: pid,
+            uid: uid,
+            overlayPermission: overlayPermission,
+            fullScreen: true,
+            windowAdded: false,
+            windowRemoved: false
+        });
+
+        posted = handler.post(new JavaAdapter(Runnable, {
+            run: function () {
+                var wm = null;
+                var view = null;
+                var params = null;
+                var type;
+                var flags;
+                var added = false;
+
+                try {
+                    STAGE = "create_view";
+                    checkpoint("running", {
+                        viewCreated: false,
+                        fullScreen: true,
+                        windowAdded: false,
+                        windowRemoved: false
+                    });
+
+                    view = new TextView(ctx);
+                    view.setBackgroundColor(Color.parseColor("#FFF9F2"));
+                    view.setText("SingBoxHub\n全屏尺寸探测");
+                    view.setTextColor(Color.parseColor("#17213A"));
+                    view.setTextSize(20);
+                    view.setGravity(Gravity.CENTER);
+
+                    type = P.android.os.Build.VERSION.SDK_INT >= 26 ?
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
+                        WindowManager.LayoutParams.TYPE_PHONE;
+                    flags =
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
+
+                    params = new WindowManager.LayoutParams(
+                        WindowManager.LayoutParams.MATCH_PARENT,
+                        WindowManager.LayoutParams.MATCH_PARENT,
+                        type,
+                        flags,
+                        PixelFormat.TRANSLUCENT
+                    );
+                    params.gravity = Gravity.TOP | Gravity.START;
+                    params.windowAnimations = 0;
+                    params.setTitle("SingBoxHub Full Screen Probe");
+
+                    wm = ctx.getSystemService(Context.WINDOW_SERVICE);
+                    STAGE = "before_add_view";
+                    checkpoint("running", {
+                        viewCreated: true,
+                        fullScreen: true,
+                        windowAdded: false,
+                        windowRemoved: false,
+                        width: Number(params.width),
+                        height: Number(params.height),
+                        type: Number(params.type),
+                        flags: Number(params.flags)
+                    });
+
+                    wm.addView(view, params);
+                    added = true;
+                    STAGE = "after_add_view";
+                    checkpoint("running", {
+                        viewCreated: true,
+                        fullScreen: true,
+                        windowAdded: true,
+                        windowRemoved: false,
+                        visibleDurationMs: 1800
+                    });
+
+                    handler.postDelayed(new JavaAdapter(Runnable, {
+                        run: function () {
+                            try {
+                                STAGE = "before_remove_view";
+                                checkpoint("running", {
+                                    viewCreated: true,
+                                    fullScreen: true,
+                                    windowAdded: true,
+                                    windowRemoved: false
+                                });
+                                wm.removeView(view);
+                                added = false;
+                                STAGE = "after_remove_view";
+                                checkpoint("full_screen_window_probe_passed", {
+                                    viewCreated: true,
+                                    fullScreen: true,
+                                    windowAdded: true,
+                                    windowRemoved: true
+                                });
+                                resultRef.set({
+                                    type: Number(params.type),
+                                    flags: Number(params.flags),
+                                    width: Number(params.width),
+                                    height: Number(params.height)
+                                });
+                            } catch (removeError) {
+                                errorRef.set(
+                                    "removeView: " + errorText(removeError)
+                                );
+                                try {
+                                    if (added) {
+                                        wm.removeViewImmediate(view);
+                                    }
+                                } catch (ignoredCleanup) {}
+                            } finally {
+                                latch.countDown();
+                            }
+                        }
+                    }), 1800);
+                } catch (addError) {
+                    errorRef.set("addView: " + errorText(addError));
+                    try {
+                        if (added && wm !== null && view !== null) {
+                            wm.removeViewImmediate(view);
+                        }
+                    } catch (ignoredCleanup2) {}
+                    latch.countDown();
+                }
+            }
+        }));
+
+        if (!posted) {
+            throw new Error("Failed to post probe to main thread");
+        }
+
+        STAGE = "waiting_for_completion";
+        completed = Boolean(latch.await(12, TimeUnit.SECONDS));
+        if (!completed) {
+            throw new Error("Probe timed out");
+        }
+        if (errorRef.get() !== null) {
+            throw new Error(String(errorRef.get()));
+        }
+        if (resultRef.get() === null) {
+            throw new Error("Probe returned no result");
+        }
+
+        STAGE = "complete";
+        checkpoint("full_screen_window_probe_passed", {
+            packageName: packageName,
+            pid: pid,
+            uid: uid,
+            overlayPermission: overlayPermission,
+            viewCreated: true,
+            fullScreen: true,
+            windowAdded: true,
+            windowRemoved: true,
+            receiverRegistered: false,
+            insetsListenerRegistered: false,
+            focusable: false,
+            touchable: false
+        });
+
+        return {
+            ok: true,
+            project: "SingBoxHub",
+            entryVersion: ENTRY_VERSION,
+            started: false,
+            status: "full_screen_window_probe_passed",
+            safeMode: true,
+            modulesEvaluated: false,
+            appStartInvoked: false,
+            coordinatorStarted: false,
+            receiverRegistered: false,
+            insetsListenerRegistered: false,
+            viewsCreated: 1,
+            windowOperationsEnabled: true,
+            fullScreen: true,
+            focusable: false,
+            touchable: false,
+            windowAdded: true,
+            windowRemoved: true,
+            visibleDurationMs: 1800,
+            windowWidth: Number(resultRef.get().width),
+            windowHeight: Number(resultRef.get().height),
+            windowType: Number(resultRef.get().type),
+            windowFlags: Number(resultRef.get().flags),
+            packageName: packageName,
+            pid: pid,
+            uid: uid,
+            overlayPermission: overlayPermission,
+            runtimeAttached: false,
+            destructiveOperations: false,
+            checkpointPath: STATE_FILE.getAbsolutePath(),
+            rootDir: root.getAbsolutePath(),
+            storageMode: resolved.storageMode,
+            durationMs: now() - startedAt,
+            timestamp: now()
+        };
+    }
+
+    try {
+        return JSON.stringify(run());
+    } catch (fatal) {
+        try {
+            checkpoint("full_screen_window_probe_failed", {
+                error: errorText(fatal),
+                fullScreen: true,
+                windowAdded:
+                    STAGE === "after_add_view" ||
+                    STAGE === "before_remove_view",
+                windowRemoved: false
+            });
+        } catch (ignoredCheckpoint) {}
+
+        return JSON.stringify({
+            ok: false,
+            project: "SingBoxHub",
+            entryVersion: ENTRY_VERSION,
+            started: false,
+            status: "full_screen_window_probe_failed",
+            stage: STAGE,
+            safeMode: true,
+            fullScreen: true,
+            runtimeAttached: false,
+            destructiveOperations: false,
+            error: errorText(fatal),
+            timestamp: now()
+        });
+    }
+}());
