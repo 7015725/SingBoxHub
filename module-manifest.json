@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "moduleSetVersion": "20260801.01",
-  "entryMinVersion": 3,
+  "entryMinVersion": 4,
   "sourceRef": "agent/modular-ui-bootstrap-20260801",
   "modules": [
     {
