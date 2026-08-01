@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "moduleSetVersion": "20260802.11",
-  "entryMinVersion": 13,
+  "moduleSetVersion": "20260802.12",
+  "entryMinVersion": 17,
   "sourceRef": "agent/runtime-client-readonly-20260802",
   "modules": [
     {
@@ -98,6 +98,11 @@
       "name": "sbh_19_runtime_jar_static_inspection.js",
       "path": "src/sbh_19_runtime_jar_static_inspection.js",
       "sha256": "6eaf6b5088496265f3144820e8f34a2c7ea8bde430665dc6b33dce1b1cf5e78d"
+    },
+    {
+      "name": "sbh_20_runtime_archive_inventory.js",
+      "path": "src/sbh_20_runtime_archive_inventory.js",
+      "sha256": "b2a853a6999da097eb1198061bd31250bb23157700e85ca702f4544e85bc871f"
     }
   ]
 }
