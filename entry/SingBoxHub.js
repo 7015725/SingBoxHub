@@ -1,15 +1,13 @@
 /*
- * SingBoxHub local module evaluation probe.
+ * SingBoxHub safe app-start probe.
  * ShortX / Rhino ES5.
  *
  * Safety boundary:
- * - reads the previously downloaded and verified local probe module set
- * - verifies SHA-256 again
- * - evaluates modules in dependency order with durable checkpoints
- * - does not call SBH.app.start()
- * - does not register receivers or create Android Views
- * - does not call WindowManager
- * - does not execute shell commands or control sing-box
+ * - reads and verifies the local probe module set created by entryVersion 6
+ * - evaluates all modules in dependency order
+ * - invokes the current safe SBH.app.start()
+ * - blocks WindowManager controller creation
+ * - does not register receivers, create Views, or control sing-box
  */
 (function (global) {
     "use strict";
@@ -26,7 +24,7 @@
     var System = P.java.lang.System;
 
     var PROJECT = "SingBoxHub";
-    var ENTRY_VERSION = 7;
+    var ENTRY_VERSION = 8;
     var EXPECTED_REF = "agent/modular-ui-bootstrap-20260801";
     var MODULE_NAMES = [
         "sbh_01_base.js",
@@ -203,7 +201,7 @@
         var output = null;
         try {
             ensureDir(dir);
-            probe = new File(dir, ".sbh-eval-probe-" + now());
+            probe = new File(dir, ".sbh-app-probe-" + now());
             output = new FOS(probe, false);
             output.write(new JavaString("ok").getBytes("UTF-8"));
             output.flush();
@@ -293,41 +291,17 @@
         }
     }
 
-    function collectVersions(versions) {
-        var output = {};
-        var key;
-        for (key in versions) {
-            if (versions.hasOwnProperty(key)) {
-                output[String(key)] = Number(versions[key]);
-            }
+    function closeDatabase(SBH) {
+        var db;
+        if (!SBH.database || typeof SBH.database.open !== "function") {
+            return false;
         }
-        return output;
-    }
-
-    function registeredCapabilities(SBH) {
-        return {
-            base: !!SBH.util,
-            log: !!SBH.log,
-            files: !!SBH.files,
-            database: !!SBH.database,
-            theme: !!SBH.theme,
-            widgets: !!SBH.widgets,
-            windowFactory: !!(
-                SBH.window &&
-                typeof SBH.window.createController === "function"
-            ),
-            navigation: !!SBH.navigation,
-            home: !!SBH.home,
-            subscriptions: !!SBH.subscriptions,
-            nodes: !!SBH.nodes,
-            runtimeLogs: !!SBH.runtimeLogs,
-            automation: !!SBH.automation,
-            runtimeClient: !!SBH.runtime,
-            appStartRegistered: !!(
-                SBH.app &&
-                typeof SBH.app.start === "function"
-            )
-        };
+        db = SBH.database.open();
+        if (db !== null && db.isOpen()) {
+            db.close();
+            return true;
+        }
+        return false;
     }
 
     function run() {
@@ -336,23 +310,19 @@
         var resolved = resolveRoot(contextValue);
         var root = resolved.root;
         var bootstrap = ensureDir(new File(root, "bootstrap"));
-        var probeStateFile = new File(
-            bootstrap,
-            "module_probe_state.json"
+        var probeState = readJson(
+            new File(bootstrap, "module_probe_state.json")
         );
-        var probeState = readJson(probeStateFile);
         var version = String(probeState.moduleSetVersion || "");
         var probeDir;
         var manifest;
         var SBH;
-        var results = [];
         var source;
         var wrapped;
         var actualHash;
         var item;
-        var moduleStartedAt;
+        var appResult;
         var databaseClosed = false;
-        var databaseFileExists = false;
         var i;
 
         if (String(probeState.status || "") !== "module_probe_passed" ||
@@ -378,7 +348,7 @@
 
         CHECKPOINT_FILE = new File(
             bootstrap,
-            "module_eval_state.json"
+            "app_start_probe_state.json"
         );
 
         SBH = {
@@ -407,7 +377,7 @@
             }
         };
 
-        CURRENT_STAGE = "evaluation_start";
+        CURRENT_STAGE = "evaluate_modules";
         checkpoint({
             schemaVersion: 1,
             entryVersion: ENTRY_VERSION,
@@ -415,7 +385,10 @@
             stage: CURRENT_STAGE,
             moduleSetVersion: version,
             modulesEvaluated: 0,
+            appStartInvoked: false,
             coordinatorStarted: false,
+            receiverRegistered: false,
+            viewsCreated: false,
             windowOperationsEnabled: false,
             updatedAt: now()
         });
@@ -424,23 +397,6 @@
             item = manifest.modules[i];
             CURRENT_INDEX = i;
             CURRENT_NAME = String(item.name);
-            moduleStartedAt = now();
-
-            CURRENT_STAGE = "verify_local_module";
-            checkpoint({
-                schemaVersion: 1,
-                entryVersion: ENTRY_VERSION,
-                status: "running",
-                stage: CURRENT_STAGE,
-                moduleIndex: i,
-                moduleName: CURRENT_NAME,
-                completedCount: results.length,
-                moduleSetVersion: version,
-                coordinatorStarted: false,
-                windowOperationsEnabled: false,
-                updatedAt: now()
-            });
-
             source = readUtf8(new File(probeDir, CURRENT_NAME));
             actualHash = sha256(source);
             if (actualHash !== String(item.sha256)) {
@@ -448,35 +404,12 @@
                     "Local SHA-256 mismatch: " + CURRENT_NAME
                 );
             }
-
-            CURRENT_STAGE = "evaluate_before";
-            checkpoint({
-                schemaVersion: 1,
-                entryVersion: ENTRY_VERSION,
-                status: "running",
-                stage: CURRENT_STAGE,
-                moduleIndex: i,
-                moduleName: CURRENT_NAME,
-                completedCount: results.length,
-                moduleSetVersion: version,
-                coordinatorStarted: false,
-                windowOperationsEnabled: false,
-                updatedAt: now()
-            });
-
             wrapped =
                 "(function (SBH) {\n" +
                 source +
                 "\n}(SBH));";
             eval(wrapped);
 
-            CURRENT_STAGE = "evaluate_after";
-            results.push({
-                index: i,
-                name: CURRENT_NAME,
-                durationMs: now() - moduleStartedAt,
-                registeredVersion: null
-            });
             checkpoint({
                 schemaVersion: 1,
                 entryVersion: ENTRY_VERSION,
@@ -484,49 +417,98 @@
                 stage: CURRENT_STAGE,
                 moduleIndex: i,
                 moduleName: CURRENT_NAME,
-                completedCount: results.length,
-                moduleSetVersion: version,
-                versions: collectVersions(SBH.versions),
+                modulesEvaluated: i + 1,
+                appStartInvoked: false,
                 coordinatorStarted: false,
+                receiverRegistered: false,
+                viewsCreated: false,
                 windowOperationsEnabled: false,
                 updatedAt: now()
             });
         }
 
-        databaseFileExists = new File(
-            SBH.paths.dataDir,
-            "singboxhub.db"
-        ).isFile();
-
-        try {
-            if (SBH.database &&
-                    typeof SBH.database.open === "function") {
-                var db = SBH.database.open();
-                if (db !== null && db.isOpen()) {
-                    db.close();
-                    databaseClosed = true;
-                }
-            }
-        } catch (databaseCloseError) {
+        if (!SBH.app || typeof SBH.app.start !== "function") {
+            throw new Error("Safe app start is not registered");
+        }
+        if (Number(SBH.versions.app || 0) !== 2) {
             throw new Error(
-                "Database close failed: " +
-                errorText(databaseCloseError)
+                "Unexpected app module version: " +
+                String(SBH.versions.app || 0)
             );
         }
+
+        /*
+         * Hard guard: even if the app module changes unexpectedly, any attempt
+         * to create a WindowManager controller fails before a View is built.
+         */
+        if (SBH.window) {
+            SBH.window.createController = function () {
+                throw new Error(
+                    "Window controller creation blocked by entryVersion 8"
+                );
+            };
+        }
+
+        CURRENT_STAGE = "app_start_before";
+        checkpoint({
+            schemaVersion: 1,
+            entryVersion: ENTRY_VERSION,
+            status: "running",
+            stage: CURRENT_STAGE,
+            moduleSetVersion: version,
+            modulesEvaluated: 15,
+            appStartInvoked: false,
+            coordinatorStarted: false,
+            receiverRegistered: false,
+            viewsCreated: false,
+            windowOperationsEnabled: false,
+            updatedAt: now()
+        });
+
+        appResult = SBH.app.start();
+
+        CURRENT_STAGE = "app_start_after";
+        checkpoint({
+            schemaVersion: 1,
+            entryVersion: ENTRY_VERSION,
+            status: "running",
+            stage: CURRENT_STAGE,
+            moduleSetVersion: version,
+            modulesEvaluated: 15,
+            appStartInvoked: true,
+            appResult: appResult,
+            coordinatorStarted: false,
+            receiverRegistered: false,
+            viewsCreated: false,
+            windowOperationsEnabled: false,
+            updatedAt: now()
+        });
+
+        if (!appResult ||
+                appResult.safeMode !== true ||
+                appResult.coordinatorStarted !== false ||
+                appResult.windowOperationsEnabled !== false ||
+                appResult.uiVisible !== false ||
+                appResult.controlAction !== null) {
+            throw new Error(
+                "Unsafe app-start result: " +
+                JSON.stringify(appResult)
+            );
+        }
+
+        databaseClosed = closeDatabase(SBH);
 
         CURRENT_STAGE = "complete";
         checkpoint({
             schemaVersion: 1,
             entryVersion: ENTRY_VERSION,
-            status: "module_evaluation_passed",
+            status: "safe_app_start_passed",
             stage: CURRENT_STAGE,
             moduleSetVersion: version,
-            modulesEvaluated: results.length,
-            versions: collectVersions(SBH.versions),
-            capabilities: registeredCapabilities(SBH),
-            databaseFileExists: databaseFileExists,
+            modulesEvaluated: 15,
+            appStartInvoked: true,
+            appResult: appResult,
             databaseClosed: databaseClosed,
-            appStartInvoked: false,
             coordinatorStarted: false,
             receiverRegistered: false,
             viewsCreated: false,
@@ -534,38 +516,36 @@
             completedAt: now()
         });
 
+        global.__SBH_SAFE_APP_PROBE__ = {
+            namespace: SBH,
+            result: appResult
+        };
+
         return {
             ok: true,
             project: PROJECT,
             entryVersion: ENTRY_VERSION,
             started: false,
-            status: "module_evaluation_passed",
+            status: "safe_app_start_passed",
             moduleSetVersion: version,
             safeMode: true,
-            modulesDownloaded: 0,
-            modulesCompiled: 0,
-            modulesEvaluated: results.length,
-            versions: collectVersions(SBH.versions),
-            capabilities: registeredCapabilities(SBH),
-            databaseFileExists: databaseFileExists,
+            modulesEvaluated: 15,
+            appModuleVersion: Number(SBH.versions.app || 0),
+            appStartRegistered: true,
+            appStartInvoked: true,
+            app: appResult,
             databaseClosed: databaseClosed,
-            appStartRegistered: !!(
-                SBH.app &&
-                typeof SBH.app.start === "function"
-            ),
-            appStartInvoked: false,
             coordinatorStarted: false,
             receiverRegistered: false,
             viewsCreated: false,
             windowOperationsEnabled: false,
+            uiVisible: false,
             runtimeAttached: false,
             destructiveOperations: false,
             checkpointPath: CHECKPOINT_FILE.getAbsolutePath(),
-            probeDirectory: probeDir.getAbsolutePath(),
             rootDir: root.getAbsolutePath(),
             storageMode: resolved.storageMode,
             durationMs: now() - startedAt,
-            results: results,
             timestamp: now()
         };
     }
@@ -577,11 +557,13 @@
             checkpoint({
                 schemaVersion: 1,
                 entryVersion: ENTRY_VERSION,
-                status: "module_evaluation_failed",
+                status: "safe_app_start_failed",
                 stage: CURRENT_STAGE,
                 moduleIndex: CURRENT_INDEX,
                 moduleName: CURRENT_NAME,
-                appStartInvoked: false,
+                appStartInvoked:
+                    CURRENT_STAGE === "app_start_after" ||
+                    CURRENT_STAGE === "complete",
                 coordinatorStarted: false,
                 receiverRegistered: false,
                 viewsCreated: false,
@@ -596,12 +578,11 @@
             project: PROJECT,
             entryVersion: ENTRY_VERSION,
             started: false,
-            status: "module_evaluation_failed",
+            status: "safe_app_start_failed",
             stage: CURRENT_STAGE,
             moduleIndex: CURRENT_INDEX,
             moduleName: CURRENT_NAME,
             safeMode: true,
-            appStartInvoked: false,
             coordinatorStarted: false,
             receiverRegistered: false,
             viewsCreated: false,
