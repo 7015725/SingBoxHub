@@ -19,8 +19,8 @@
     var RhinoContext = P.org.mozilla.javascript.Context;
 
     var PROJECT = "SingBoxHub";
-    var ENTRY_VERSION = 12;
-    var REF = "agent/modular-ui-bootstrap-20260801";
+    var ENTRY_VERSION = 14;
+    var REF = "agent/runtime-client-readonly-20260802";
     var RAW_BASE = "https://raw.githubusercontent.com/7015725/SingBoxHub/" + REF + "/";
     var MODULE_NAMES = [
         "sbh_01_base.js",
@@ -37,7 +37,8 @@
         "sbh_12_runtime_logs.js",
         "sbh_13_automation.js",
         "sbh_14_runtime_client.js",
-        "sbh_15_app.js"
+        "sbh_15_app.js",
+        "sbh_16_runtime_status_home.js"
     ];
 
     function now() {
@@ -77,29 +78,30 @@
             if (typeof context !== "undefined" && context !== null) {
                 value = context;
             }
-        } catch (ignored1) {}
+        } catch (ignoredContext) {}
         if (value === null) {
             try {
                 value = P.android.app.ActivityThread.currentApplication();
-            } catch (ignored2) {}
+            } catch (ignoredActivityThread) {}
         }
         if (value === null) {
             try {
                 value = P.android.app.AppGlobals.getInitialApplication();
-            } catch (ignored3) {}
+            } catch (ignoredAppGlobals) {}
         }
         if (value === null) {
             throw new Error("Android Context unavailable");
         }
         try {
             return value.getApplicationContext() || value;
-        } catch (ignored4) {
+        } catch (ignoredApplicationContext) {
             return value;
         }
     }
 
     function shortxRoot() {
-        if (typeof shortx === "undefined" || shortx === null || typeof shortx.getShortXDir !== "function") {
+        if (typeof shortx === "undefined" || shortx === null ||
+                typeof shortx.getShortXDir !== "function") {
             throw new Error("shortx.getShortXDir() unavailable");
         }
         return new File(String(shortx.getShortXDir()));
@@ -139,7 +141,7 @@
         var i;
         try {
             filesDir = ctx.getFilesDir();
-        } catch (ignored) {}
+        } catch (ignoredFilesDir) {}
         if (filesDir !== null) {
             candidates.push({
                 mode: "app_files_fallback",
@@ -261,15 +263,21 @@
         var stream;
         var text;
         try {
-            connection = new URL(RAW_BASE + String(path) + "?entry=" + ENTRY_VERSION + "-" + now()).openConnection();
+            connection = new URL(
+                RAW_BASE + String(path) + "?entry=" + ENTRY_VERSION + "-" + now()
+            ).openConnection();
             connection.setConnectTimeout(15000);
             connection.setReadTimeout(30000);
             connection.setUseCaches(false);
             connection.setRequestProperty("Accept-Encoding", "identity");
             connection.setRequestProperty("Cache-Control", "no-cache");
-            connection.setRequestProperty("User-Agent", "SingBoxHub-ShortX/" + ENTRY_VERSION);
+            connection.setRequestProperty(
+                "User-Agent",
+                "SingBoxHub-ShortX/" + ENTRY_VERSION
+            );
             code = Number(connection.getResponseCode());
-            stream = code >= 200 && code < 300 ? connection.getInputStream() : connection.getErrorStream();
+            stream = code >= 200 && code < 300 ?
+                connection.getInputStream() : connection.getErrorStream();
             text = String(new JavaString(readBytes(stream), "UTF-8"));
             if (code < 200 || code >= 300) {
                 throw new Error("HTTP " + code + " for " + path);
@@ -290,12 +298,18 @@
     function validateManifest(manifest) {
         var i;
         var item;
-        if (!manifest || Number(manifest.schemaVersion) !== 1 || String(manifest.sourceRef || "") !== REF || Number(manifest.entryMinVersion || 0) > ENTRY_VERSION || !manifest.moduleSetVersion || !manifest.modules || Number(manifest.modules.length) !== MODULE_NAMES.length) {
+        if (!manifest || Number(manifest.schemaVersion) !== 1 ||
+                String(manifest.sourceRef || "") !== REF ||
+                Number(manifest.entryMinVersion || 0) > ENTRY_VERSION ||
+                !manifest.moduleSetVersion || !manifest.modules ||
+                Number(manifest.modules.length) !== MODULE_NAMES.length) {
             throw new Error("Invalid module manifest");
         }
         for (i = 0; i < MODULE_NAMES.length; i += 1) {
             item = manifest.modules[i];
-            if (!item || String(item.name || "") !== MODULE_NAMES[i] || String(item.path || "") !== "src/" + MODULE_NAMES[i] || !/^[0-9a-f]{64}$/.test(String(item.sha256 || ""))) {
+            if (!item || String(item.name || "") !== MODULE_NAMES[i] ||
+                    String(item.path || "") !== "src/" + MODULE_NAMES[i] ||
+                    !/^[0-9a-f]{64}$/.test(String(item.sha256 || ""))) {
                 throw new Error("Invalid module item: " + i);
             }
         }
@@ -307,7 +321,12 @@
         if (current === null) {
             throw new Error("Rhino Context unavailable");
         }
-        current.compileString("(function(SBH){\n" + source + "\n}(SBH));", String(name), 1, null);
+        current.compileString(
+            "(function(SBH){\n" + source + "\n}(SBH));",
+            String(name),
+            1,
+            null
+        );
     }
 
     function buildPaths(resolved) {
@@ -353,7 +372,8 @@
         for (i = 0; i < manifest.modules.length; i += 1) {
             item = manifest.modules[i];
             file = new File(dir, item.name);
-            if (!file.isFile() || sha256(readUtf8(file)) !== String(item.sha256)) {
+            if (!file.isFile() ||
+                    sha256(readUtf8(file)) !== String(item.sha256)) {
                 return false;
             }
         }
@@ -367,9 +387,15 @@
         var item;
         var source;
         var i;
+
         if (verifySet(paths, manifest)) {
-            return { version: version, reused: true, downloadedCount: 0 };
+            return {
+                version: version,
+                reused: true,
+                downloadedCount: 0
+            };
         }
+
         deleteTree(stage);
         ensureDir(stage);
         try {
@@ -382,14 +408,21 @@
                 compileOnly(source, item.name);
                 writeUtf8(new File(stage, item.name), source);
             }
-            writeUtf8(new File(stage, "module-manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+            writeUtf8(
+                new File(stage, "module-manifest.json"),
+                JSON.stringify(manifest, null, 2) + "\n"
+            );
             if (finalDir.exists()) {
                 deleteTree(finalDir);
             }
             if (!stage.renameTo(finalDir)) {
                 throw new Error("Cannot activate module set: " + version);
             }
-            return { version: version, reused: false, downloadedCount: manifest.modules.length };
+            return {
+                version: version,
+                reused: false,
+                downloadedCount: manifest.modules.length
+            };
         } catch (error) {
             deleteTree(stage);
             throw error;
@@ -399,7 +432,7 @@
     function loadSet(paths, version, ctx, syncInfo) {
         var manifest = localManifest(paths, version);
         var dir = setDir(paths, version);
-        var SBH = {
+        var namespace = {
             global: global,
             context: ctx,
             state: {},
@@ -427,6 +460,8 @@
         var i;
         var item;
         var source;
+        var SBH = namespace;
+
         for (i = 0; i < manifest.modules.length; i += 1) {
             item = manifest.modules[i];
             source = readUtf8(new File(dir, item.name));
@@ -438,11 +473,29 @@
         if (!SBH.app || typeof SBH.app.start !== "function") {
             throw new Error("App module did not register start()");
         }
-        return { namespace: SBH, result: SBH.app.start() };
+        return {
+            namespace: SBH,
+            result: SBH.app.start()
+        };
     }
 
     function pointerVersion(pointer) {
-        return pointer && pointer.moduleSetVersion ? String(pointer.moduleSetVersion) : "";
+        return pointer && pointer.moduleSetVersion ?
+            String(pointer.moduleSetVersion) : "";
+    }
+
+    function runtimeAttached(loaded) {
+        try {
+            if (loaded && loaded.result &&
+                    loaded.result.runtimeAttached === true) {
+                return true;
+            }
+            if (loaded && loaded.namespace && loaded.namespace.runtime &&
+                    typeof loaded.namespace.runtime.isAttached === "function") {
+                return loaded.namespace.runtime.isAttached() === true;
+            }
+        } catch (ignored) {}
+        return false;
     }
 
     function run() {
@@ -467,9 +520,12 @@
         var loaded;
         var fallback;
         var stamp = now();
+        var attached;
 
         try {
-            remoteManifest = validateManifest(JSON.parse(fetchText("module-manifest.json")));
+            remoteManifest = validateManifest(
+                JSON.parse(fetchText("module-manifest.json"))
+            );
             syncInfo.remoteAvailable = true;
             prepared = prepareSet(paths, remoteManifest);
             candidate = prepared.version;
@@ -481,7 +537,10 @@
         }
 
         if (!candidate) {
-            throw new Error("No verified module set available: " + String(syncInfo.warning || "unknown"));
+            throw new Error(
+                "No verified module set available: " +
+                String(syncInfo.warning || "unknown")
+            );
         }
 
         try {
@@ -496,6 +555,8 @@
             candidate = fallback;
             loaded = loadSet(paths, candidate, ctx, syncInfo);
         }
+
+        attached = runtimeAttached(loaded);
 
         writeJson(paths.activeFile, {
             schemaVersion: 1,
@@ -512,10 +573,11 @@
             lastSuccessfulStartAt: stamp
         });
         writeJson(paths.updateStateFile, {
-            schemaVersion: 1,
+            schemaVersion: 2,
             entryVersion: ENTRY_VERSION,
             updatedAt: stamp,
             sync: syncInfo,
+            runtimeAttached: attached,
             status: "full_ui_started"
         });
 
@@ -528,7 +590,7 @@
             moduleSetVersion: candidate,
             started: true,
             status: "full_ui_started",
-            runtimeAttached: false,
+            runtimeAttached: attached,
             destructiveOperations: false,
             sync: syncInfo,
             app: loaded.result,
