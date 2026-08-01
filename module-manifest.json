@@ -32,12 +32,12 @@
     {
       "name": "sbh_06_widgets.js",
       "path": "src/sbh_06_widgets.js",
-      "sha256": "f79ba0dd4808cda262fdd28f7936c5fada1c583ec6f686795b5a646ba81caef3"
+      "sha256": "abf53600365aae22f16e8056de827d6c1172ecb33b4c06e15ecb216d991a878a"
     },
     {
       "name": "sbh_07_window.js",
       "path": "src/sbh_07_window.js",
-      "sha256": "8e496d8978ddc35f185e003ae2b238de34b400330a31fb3e2dfed5108ecbd71d"
+      "sha256": "15d60e6304f06648e3e0d83ec73daf24655774478b5374e4dcfedf0c0f3e6ffe"
     },
     {
       "name": "sbh_08_navigation.js",
