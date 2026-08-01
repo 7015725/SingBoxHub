@@ -1,5 +1,5 @@
 /* SingBoxHub widget module. Rhino ES5 only. */
-SBH.versions.widgets = 2;
+SBH.versions.widgets = 3;
 
 (function () {
     var P = Packages;
@@ -17,6 +17,7 @@ SBH.versions.widgets = 2;
     var C = SBH.theme.colors;
     var MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
     var WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
+    var PAGE_BOTTOM_PADDING_DP = 48;
 
     var glyph = {
         home: "⌂",
@@ -202,7 +203,7 @@ SBH.versions.widgets = 2;
             SBH.util.dp(16),
             SBH.util.dp(12),
             SBH.util.dp(16),
-            SBH.util.dp(22)
+            SBH.util.dp(PAGE_BOTTOM_PADDING_DP)
         );
         scroll.addView(content, fp(MATCH, WRAP));
         return { view: scroll, content: content };
