@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "moduleSetVersion": "20260802.02",
+  "moduleSetVersion": "20260802.03",
   "entryMinVersion": 13,
   "sourceRef": "agent/runtime-client-readonly-20260802",
   "modules": [
@@ -72,17 +72,17 @@
     {
       "name": "sbh_14_runtime_client.js",
       "path": "src/sbh_14_runtime_client.js",
-      "sha256": "40dcd052cf8104ab08a0656d947466d0b73c38c3b8b63296c609a647a54d586e"
+      "sha256": "76bfb940bb7581a1d5486c83dc0be44e2122dcce24efc51fd783dae1d14bbdbc"
     },
     {
       "name": "sbh_15_app.js",
       "path": "src/sbh_15_app.js",
-      "sha256": "250174d1dd015e18c8c36cbaf30a31fffed98981511784782b5c09101ddfa3c5"
+      "sha256": "e7e4d15c55d2d8574167ec67afffc4a0b7449a56118ddbb733a8b33691da1a63"
     },
     {
       "name": "sbh_16_runtime_status_home.js",
       "path": "src/sbh_16_runtime_status_home.js",
-      "sha256": "6cb0912e89331fefb3f815ac5088fb4d7d56e33137ac78ad10e0a4ff69a3be89"
+      "sha256": "48dd18fcace8a0aab38b3a95f898e727af4463a6cbae3f7dbfc97997d2b73409"
     }
   ]
 }
