@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "moduleSetVersion": "20260801.03",
-  "entryMinVersion": 4,
+  "moduleSetVersion": "20260801.04",
+  "entryMinVersion": 12,
   "sourceRef": "agent/modular-ui-bootstrap-20260801",
   "modules": [
     {
@@ -32,12 +32,12 @@
     {
       "name": "sbh_06_widgets.js",
       "path": "src/sbh_06_widgets.js",
-      "sha256": "50b4b11954b3e41ce9c6c20d0c41d8e4e2ba5b455fc9993fb8eb9198e6cc6c63"
+      "sha256": "f79ba0dd4808cda262fdd28f7936c5fada1c583ec6f686795b5a646ba81caef3"
     },
     {
       "name": "sbh_07_window.js",
       "path": "src/sbh_07_window.js",
-      "sha256": "27e9940b75e2476a1a14183b2ba98d299468620591e8f7ebffe0816cf7d29349"
+      "sha256": "8e496d8978ddc35f185e003ae2b238de34b400330a31fb3e2dfed5108ecbd71d"
     },
     {
       "name": "sbh_08_navigation.js",
@@ -77,7 +77,7 @@
     {
       "name": "sbh_15_app.js",
       "path": "src/sbh_15_app.js",
-      "sha256": "7ddb5ce6be2bd55131c0b5e78919fc3f9f6e84e47c26991598a9b783ea474a75"
+      "sha256": "9e2217a75b3967a13b67f0a7550e45f62016d966cf8d40eff55a26ede6d9a653"
     }
   ]
 }
