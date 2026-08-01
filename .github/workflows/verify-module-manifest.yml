@@ -1,0 +1,62 @@
+name: Verify UI Module Manifest
+
+on:
+  push:
+    branches:
+      - agent/modular-ui-bootstrap-20260801
+  pull_request:
+    paths:
+      - 'src/*.js'
+      - 'module-manifest.json'
+      - '.github/workflows/verify-module-manifest.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Print committed SHA-256 values
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '--- ACTUAL_SHA256_BEGIN ---'
+          sha256sum src/sbh_*.js
+          echo '--- ACTUAL_SHA256_END ---'
+
+      - name: Verify manifest
+        shell: python
+        run: |
+          import hashlib
+          import json
+          from pathlib import Path
+
+          manifest_path = Path('module-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          failures = []
+          actual = {}
+
+          for item in manifest['modules']:
+              path = Path(item['path'])
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              actual[item['name']] = digest
+              if digest != item['sha256']:
+                  failures.append({
+                      'name': item['name'],
+                      'expected': item['sha256'],
+                      'actual': digest,
+                      'bytes': path.stat().st_size,
+                  })
+
+          print(json.dumps({
+              'moduleSetVersion': manifest['moduleSetVersion'],
+              'actual': actual,
+              'failures': failures,
+          }, ensure_ascii=False, indent=2))
+
+          if failures:
+              raise SystemExit('module-manifest.json does not match committed bytes')
