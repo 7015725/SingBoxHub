@@ -1,5 +1,5 @@
 /* SingBoxHub read-only Runtime status home overlay. Rhino ES5 only. */
-SBH.versions.runtimeStatusHome = 2;
+SBH.versions.runtimeStatusHome = 3;
 
 (function () {
     var P = Packages;
@@ -14,20 +14,37 @@ SBH.versions.runtimeStatusHome = 2;
         var right = W.text(value, 13, accent || C.text, true);
         row.setPadding(0, SBH.util.dp(7), 0, SBH.util.dp(7));
         row.addView(W.icon(iconName, 24, C.secondary));
-        row.addView(W.text(title, 12.5, C.secondary, false), W.lp(0, W.WRAP, 1));
+        row.addView(
+            W.text(title, 12.5, C.secondary, false),
+            W.lp(0, W.WRAP, 1)
+        );
         row.addView(right);
         return row;
     }
 
-    function request(command) {
+    function syncView(controller) {
+        if (controller &&
+                typeof controller.refreshRuntimeBadge === "function") {
+            controller.refreshRuntimeBadge(false);
+        }
+        if (controller && typeof controller.showPage === "function") {
+            controller.showPage(0);
+        }
+    }
+
+    function request(controller, command) {
         var result = SBH.runtime.request({
             requestId: "sbh-readonly-" + SBH.util.now(),
             command: command,
             expectedState: "unknown",
             arguments: {}
         });
-        SBH.log.info("runtime", result.code + ": " + result.message);
+        SBH.log.info(
+            "runtime",
+            result.code + ": " + result.message
+        );
         SBH.util.toast(result.message);
+        syncView(controller);
         return result;
     }
 
@@ -62,7 +79,9 @@ SBH.versions.runtimeStatusHome = 2;
 
         if (runtime.coreRunning) {
             title = "Runtime 运行中";
-            description = "只读握手正常，sing-box PID " + String(runtime.corePid);
+            description =
+                "只读握手正常，sing-box PID " +
+                String(runtime.corePid);
             accent = C.green;
             soft = C.greenSoft;
         } else if (runtime.attached) {
@@ -78,7 +97,8 @@ SBH.versions.runtimeStatusHome = 2;
         } else {
             title = "Runtime 状态不可用";
             description = runtime.error ?
-                String(runtime.error) : "ShortX Shell 状态读取失败";
+                String(runtime.error) :
+                "ShortX Shell 状态读取失败";
             accent = C.coral;
             soft = C.coralSoft;
         }
@@ -90,7 +110,10 @@ SBH.versions.runtimeStatusHome = 2;
                 "#E3EAE6"
             )
         );
-        shell.addView(W.artView(false), W.fp(W.MATCH, W.MATCH));
+        shell.addView(
+            W.artView(false),
+            W.fp(W.MATCH, W.MATCH)
+        );
         body.setPadding(
             SBH.util.dp(18),
             SBH.util.dp(18),
@@ -98,69 +121,143 @@ SBH.versions.runtimeStatusHome = 2;
             SBH.util.dp(16)
         );
 
-        circle.setBackground(SBH.theme.rounded(soft, 50, soft, 1));
+        circle.setBackground(
+            SBH.theme.rounded(soft, 50, soft, 1)
+        );
         circle.addView(
-            W.icon(runtime.coreRunning ? "shield" : "box", 54, accent),
+            W.icon(
+                runtime.coreRunning ? "shield" : "box",
+                54,
+                accent
+            ),
             W.fp(W.MATCH, W.MATCH, Gravity.CENTER)
         );
-        head.addView(circle, W.lp(SBH.util.dp(74), SBH.util.dp(74)));
+        head.addView(
+            circle,
+            W.lp(SBH.util.dp(74), SBH.util.dp(74))
+        );
 
-        statusBox.setPadding(SBH.util.dp(14), SBH.util.dp(4), 0, 0);
-        dot.setBackground(SBH.theme.rounded(accent, 9, C.clear, 0));
-        statusRow.addView(dot, W.lp(SBH.util.dp(10), SBH.util.dp(10)));
+        statusBox.setPadding(
+            SBH.util.dp(14),
+            SBH.util.dp(4),
+            0,
+            0
+        );
+        dot.setBackground(
+            SBH.theme.rounded(accent, 9, C.clear, 0)
+        );
+        statusRow.addView(
+            dot,
+            W.lp(SBH.util.dp(10), SBH.util.dp(10))
+        );
         statusRow.addView(
             W.text(title, 21, accent, true),
-            W.margins(W.lp(W.WRAP, W.WRAP), 8, 0, 0, 0)
+            W.margins(
+                W.lp(W.WRAP, W.WRAP),
+                8,
+                0,
+                0,
+                0
+            )
         );
         statusBox.addView(statusRow);
-        description = W.text(description, 13, C.secondary, false);
-        description.setPadding(0, SBH.util.dp(8), 0, 0);
+        description = W.text(
+            description,
+            13,
+            C.secondary,
+            false
+        );
+        description.setPadding(
+            0,
+            SBH.util.dp(8),
+            0,
+            0
+        );
         statusBox.addView(description);
-        head.addView(statusBox, W.lp(0, W.WRAP, 1));
-        head.addView(W.label(
-            runtime.attached ? "只读握手" : "等待接入",
-            runtime.attached ? C.green : C.orange,
-            runtime.attached ? C.greenSoft : C.orangeSoft
-        ));
+        head.addView(
+            statusBox,
+            W.lp(0, W.WRAP, 1)
+        );
+        head.addView(
+            W.label(
+                runtime.attached ? "只读握手" : "等待接入",
+                runtime.attached ? C.green : C.orange,
+                runtime.attached ? C.greenSoft : C.orangeSoft
+            )
+        );
         body.addView(head);
 
-        body.addView(infoLine(
-            "settings",
-            "生产控制器",
-            componentText(components.controller),
-            components.controller ? C.green : C.coral
-        ));
-        body.addView(infoLine(
-            "box",
-            "sing-box Core",
-            runtime.coreRunning ? "运行中" : componentText(components.coreBinary),
-            runtime.coreRunning ? C.green : C.blue
-        ));
-        body.addView(infoLine(
-            "magic",
-            "Runtime 控制端点",
-            endpointText(runtime),
-            components.controlEndpoint ? C.green : C.orange
-        ));
+        body.addView(
+            infoLine(
+                "settings",
+                "生产控制器",
+                componentText(components.controller),
+                components.controller ? C.green : C.coral
+            )
+        );
+        body.addView(
+            infoLine(
+                "box",
+                "sing-box Core",
+                runtime.coreRunning ?
+                    "运行中" :
+                    componentText(components.coreBinary),
+                runtime.coreRunning ? C.green : C.blue
+            )
+        );
+        body.addView(
+            infoLine(
+                "magic",
+                "Runtime 控制端点",
+                endpointText(runtime),
+                components.controlEndpoint ?
+                    C.green :
+                    C.orange
+            )
+        );
 
         actions.setGravity(Gravity.CENTER);
         actions.addView(
-            W.button("握手", "shield", C.green, C.greenSoft, function () {
-                request("runtime.handshake");
-            }),
+            W.button(
+                "握手",
+                "shield",
+                C.green,
+                C.greenSoft,
+                function () {
+                    request(controller, "runtime.handshake");
+                }
+            ),
             W.lp(0, SBH.util.dp(48), 1)
         );
         actions.addView(
-            W.button("状态", "logs", C.blue, C.blueSoft, function () {
-                request("runtime.status");
-            }),
-            W.margins(W.lp(0, SBH.util.dp(48), 1), 8, 0, 8, 0)
+            W.button(
+                "状态",
+                "logs",
+                C.blue,
+                C.blueSoft,
+                function () {
+                    request(controller, "runtime.status");
+                }
+            ),
+            W.margins(
+                W.lp(0, SBH.util.dp(48), 1),
+                8,
+                0,
+                8,
+                0
+            )
         );
         actions.addView(
-            W.button("刷新", "reload", C.blue, C.blueSoft, function () {
-                SBH.runtime.refresh();
-                controller.showPage(0);
-            }),
+            W.button(
+                "刷新",
+                "reload",
+                C.blue,
+                C.blueSoft,
+                function () {
+                    SBH.runtime.refresh();
+                    syncView(controller);
+                }
+            ),
             W.lp(0, SBH.util.dp(48), 1)
         );
 
@@ -170,30 +267,53 @@ SBH.versions.runtimeStatusHome = 2;
             SBH.util.dp(5),
             SBH.util.dp(5)
         );
-        actionShell.setBackground(SBH.theme.rounded("#F9FBFC", 17, "#E4E9EF", 1));
+        actionShell.setBackground(
+            SBH.theme.rounded(
+                "#F9FBFC",
+                17,
+                "#E4E9EF",
+                1
+            )
+        );
         actionShell.addView(actions);
-        body.addView(actionShell, W.lp(W.MATCH, SBH.util.dp(60)));
+        body.addView(
+            actionShell,
+            W.lp(W.MATCH, SBH.util.dp(60))
+        );
 
-        shell.addView(body, W.fp(W.MATCH, W.MATCH));
-        shell.setLayoutParams(W.lp(W.MATCH, SBH.util.dp(320)));
+        shell.addView(
+            body,
+            W.fp(W.MATCH, W.MATCH)
+        );
+        shell.setLayoutParams(
+            W.lp(W.MATCH, SBH.util.dp(320))
+        );
         return shell;
     }
 
     function build(controller) {
         var page = originalHome(controller);
         var content;
-        if (page !== null && page !== undefined && page.getChildCount() > 0) {
+        if (page !== null &&
+                page !== undefined &&
+                page.getChildCount() > 0) {
             content = page.getChildAt(0);
-            if (content !== null && content.getChildCount() > 0) {
+            if (content !== null &&
+                    content.getChildCount() > 0) {
                 content.removeViewAt(0);
-                content.addView(buildHero(controller), 0);
+                content.addView(
+                    buildHero(controller),
+                    0
+                );
             }
         }
         return page;
     }
 
     if (typeof originalHome !== "function") {
-        throw new Error("Original home page factory unavailable");
+        throw new Error(
+            "Original home page factory unavailable"
+        );
     }
     SBH.navigation.register(0, build);
 }());
