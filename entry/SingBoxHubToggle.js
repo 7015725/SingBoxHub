@@ -41,22 +41,58 @@
         }
     }
 
-    try {
-        if (typeof context !== "undefined" && context !== null) {
-            contextValue = context;
-        }
-    } catch (ignored1) {}
-    if (contextValue === null) {
+    function getContext() {
+        var value = null;
         try {
-            contextValue = P.android.app.ActivityThread.currentApplication();
-        } catch (ignored2) {}
+            if (typeof context !== "undefined" && context !== null) {
+                value = context;
+            }
+        } catch (ignored1) {}
+        if (value === null) {
+            try {
+                value = P.android.app.ActivityThread.currentApplication();
+            } catch (ignored2) {}
+        }
+        if (value === null) {
+            try {
+                value = P.android.app.AppGlobals.getInitialApplication();
+            } catch (ignored3) {}
+        }
+        if (value === null) {
+            throw new Error("Android Context unavailable");
+        }
+        try {
+            return value.getApplicationContext() || value;
+        } catch (ignored4) {
+            return value;
+        }
     }
-    if (contextValue === null) {
-        throw new Error("Android Context unavailable");
+
+    function findEndpoint(base, contextObject) {
+        var candidates = [
+            new File(base, "SingBoxHubClient/cache/control_endpoint.json"),
+            new File(base, "SingBoxHub-UI/cache/control_endpoint.json")
+        ];
+        var filesDir = null;
+        var i;
+        try {
+            filesDir = contextObject.getFilesDir();
+        } catch (ignored) {}
+        if (filesDir !== null) {
+            candidates.push(new File(
+                filesDir,
+                "SingBoxHubClient/cache/control_endpoint.json"
+            ));
+        }
+        for (i = 0; i < candidates.length; i += 1) {
+            if (candidates[i].isFile()) {
+                return candidates[i];
+            }
+        }
+        return null;
     }
-    try {
-        contextValue = contextValue.getApplicationContext() || contextValue;
-    } catch (ignored3) {}
+
+    contextValue = getContext();
 
     if (typeof shortx === "undefined" ||
             shortx === null ||
@@ -64,16 +100,18 @@
         throw new Error("shortx.getShortXDir() unavailable");
     }
 
-    var endpointFile = new File(
-        String(shortx.getShortXDir()),
-        "SingBoxHub/cache/control_endpoint.json"
-    );
-    if (!endpointFile.isFile()) {
+    var shortxDir = new File(String(shortx.getShortXDir()));
+    var endpointFile = findEndpoint(shortxDir, contextValue);
+    if (endpointFile === null) {
         return JSON.stringify({
             ok: false,
             sent: false,
             code: "COORDINATOR_NOT_RUNNING",
-            message: "请先运行 SingBoxHub 主任务"
+            message: "请先运行 SingBoxHub 主任务",
+            searchedRoots: [
+                new File(shortxDir, "SingBoxHubClient").getAbsolutePath(),
+                new File(shortxDir, "SingBoxHub-UI").getAbsolutePath()
+            ]
         });
     }
 
@@ -88,6 +126,7 @@
         ok: true,
         sent: true,
         command: "toggle",
-        moduleSetVersion: endpoint.moduleSetVersion
+        moduleSetVersion: endpoint.moduleSetVersion,
+        endpointPath: endpointFile.getAbsolutePath()
     });
 }());
