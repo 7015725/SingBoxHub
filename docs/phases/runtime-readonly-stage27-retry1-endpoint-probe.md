@@ -7,7 +7,7 @@
 - 模块数量：`27`
 - 修改模块：`src/sbh_27_runtime_readonly_socket_ping.js`
 - 模块内部版本：`runtimeReadonlySocketPing = 2`
-- 模块 SHA-256：`6f0623b345e3126407a2542d659a8ff13f4525f133c95f6e918660d02072c23c`
+- 模块 SHA-256：`9a5efebeadb48a4bcf7491fc03b24ef1ace9d2fd848ae9d536fa3bc0f55c0119`
 - 授权标识：`stage27-retry1-user-authorized-20260802`
 - 状态：修复实现完成，真机验证待执行
 
