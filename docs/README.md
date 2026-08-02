@@ -132,7 +132,19 @@
   - 将已验证的 PING 契约收敛为规范化只读 handshake/status 输出
   - 不启动控制服务、不写 Runtime 文件、不轮询、不自动重试
   - 只开放 `runtime.handshake`、`runtime.status` 和 `core.status`
-  - 真机验证待执行
+  - 真机验证完成
+
+- `phases/runtime-stage30-true-device-success.md`
+  - canonical endpoint、控制进程身份和认证 LocalSocket 全部通过
+  - 输出可供 UI 使用的 `handshake` 与 `status`
+  - 请求数为 1，收到 `PONG` 且 correlation 匹配
+  - 允许进入常驻 UI 集成阶段
+
+- `phases/runtime-stage31-authenticated-adapter-ui-integration.md`
+  - 新增认证只读 Runtime 状态模块和隔离测试入口
+  - 常驻候选集清理为基础 UI 1–16 加新模块 30，共 17 个模块
+  - 阶段 17–29 保留在仓库但退出常驻 manifest
+  - 模块集 `20260803.01`，真机验证待执行
 
 - `phases/runtime-stage29-bootstrap-aftermath-probe.md`
   - 只读确认控制服务、endpoint、临时文件和日志错误信号
