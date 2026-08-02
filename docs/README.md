@@ -120,7 +120,19 @@
   - 改用公开单参数 `LocalSocket.connect(LocalSocketAddress)`
   - 连接成功后再设置读超时，禁用不受支持的双参数 connect 重载
   - 增加连接、超时配置、请求写入和响应读取的精确错误分类
-  - 最多发送一次固定只读 `PING`，真机验证待执行
+  - 最多发送一次固定只读 `PING`
+
+- `phases/runtime-stage28-retry4-true-device-success.md`
+  - 真机复用 PID `11451` 的控制服务并完成 endpoint 全部门禁
+  - Android LocalSocket 连接成功，收到 `PONG` 且 correlation 完整匹配
+  - 请求数为 1，未修改 Runtime 文件、Core、TUN、路由或配置
+  - Stage 28 正式完成
+
+- `phases/runtime-stage30-readonly-status-adapter.md`
+  - 将已验证的 PING 契约收敛为规范化只读 handshake/status 输出
+  - 不启动控制服务、不写 Runtime 文件、不轮询、不自动重试
+  - 只开放 `runtime.handshake`、`runtime.status` 和 `core.status`
+  - 真机验证待执行
 
 - `phases/runtime-stage29-bootstrap-aftermath-probe.md`
   - 只读确认控制服务、endpoint、临时文件和日志错误信号
