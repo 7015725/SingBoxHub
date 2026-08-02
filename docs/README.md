@@ -71,7 +71,17 @@
   - 直接启动 Runtime 控制服务并原子替换过期 endpoint
   - 校验新进程、endpoint 所有者和命令行身份
   - 最多执行一次只读 `PING`，不启动 sing-box 核心、TUN 或路由
-  - 真机一次性验证待执行
+
+- `phases/runtime-stage28-true-device-timeout.md`
+  - 真机启动 Shell 在约 12 秒预算内未返回终态
+  - 只确认前置检查完成，不能据此断言控制服务从未启动
+  - 未读取 token、未连接 Socket、未发送请求
+
+- `phases/runtime-stage29-bootstrap-aftermath-probe.md`
+  - 只读确认控制服务、endpoint、临时文件和日志错误信号
+  - 不启动或停止进程，不读取 token，不连接 Socket
+  - 为分段启动重试确定精确修复路径
+  - 真机验证待执行
 
 ## 架构决策
 
