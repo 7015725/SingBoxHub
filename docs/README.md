@@ -42,10 +42,14 @@
   - 验证升级后单次运行直接得到结果
 
 - `phases/runtime-readonly-stage27-socket-ping.md`
-  - 在明确授权下执行一次真实 Android LocalSocket `PING`
-  - 严格验证 `PONG + correlation echo`
-  - token、socketName 和 correlation 均不输出、不缓存
-  - 授权只消费一次，后续运行只读取脱敏缓存
-  - 持续锁定所有生命周期、TUN 和路由修改命令
+  - 首轮真实 Android LocalSocket `PING` 设计与授权边界
+  - 记录直接 Java 文件读取 endpoint 的安全失败
+  - 未读取 token、未连接 Socket、未发送请求
+
+- `phases/runtime-readonly-stage27-retry1-endpoint-probe.md`
+  - 使用新的明确授权重试一次只读 `PING`
+  - 复用已验证的 root Shell + Base64 endpoint probe
+  - 强校验 canonical path、属主、权限、schema 和敏感字段格式
+  - 保持一次授权一次请求、禁止自动重试和所有生命周期命令
 
 设计冻结后的核心架构变更必须新增 ADR，不直接覆盖历史结论。
