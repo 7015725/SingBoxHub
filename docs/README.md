@@ -97,6 +97,17 @@
   - 改用 `toybox setsid` 建立新会话
   - 将启动事务与独立只读复核拆分为两次 ShellCommand
   - 即使启动输出不完整，也只复核现有服务，不再次盲目启动
+  - 最多发送一次固定只读 `PING`
+
+- `phases/runtime-stage28-retry2-true-device-reconciliation-incomplete.md`
+  - 记录启动和只读复核均未返回终态
+  - 定位复核阶段全量 `/proc` 扫描及 `setsid ... &` 边界
+  - 未读取 token、未连接 Socket、未发送请求
+
+- `phases/runtime-stage28-retry3-double-setsid-known-pid.md`
+  - 使用双 `setsid` 同步派发，不在启动 Shell 中使用后台 `&`
+  - 通过事务 PID 文件和 canonical endpoint 进行已知 PID 复核
+  - 移除全量 `/proc` 扫描并增加本次事务精确回滚
   - 最多发送一次固定只读 `PING`，真机验证待执行
 
 - `phases/runtime-stage29-bootstrap-aftermath-probe.md`
