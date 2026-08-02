@@ -39,6 +39,13 @@
   - 归一化旧适配计划阻断项
   - 生成不读取 token 原值的脱敏 PING 请求和响应预览
   - 固定真实 Socket dry-run 的独立授权门禁
-  - 优先支持升级后单次运行直接得到结果
+  - 验证升级后单次运行直接得到结果
+
+- `phases/runtime-readonly-stage27-socket-ping.md`
+  - 在明确授权下执行一次真实 Android LocalSocket `PING`
+  - 严格验证 `PONG + correlation echo`
+  - token、socketName 和 correlation 均不输出、不缓存
+  - 授权只消费一次，后续运行只读取脱敏缓存
+  - 持续锁定所有生命周期、TUN 和路由修改命令
 
 设计冻结后的核心架构变更必须新增 ADR，不直接覆盖历史结论。
