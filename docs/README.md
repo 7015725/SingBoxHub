@@ -23,20 +23,22 @@
 
 - `phases/phase4b-auto-route-residual-recovery.md`
   - Phase 4B 崩溃后 `auto_route` 规则残留根因
-  - 严格清理契约
-  - 生产控制器升级哈希
-  - Clash `tun0` 共存验证
-  - Phase 4B 重测与 Phase 4C 门禁
+  - 严格清理契约与生产控制器升级
 
 - `phases/runtime-readonly-stage24-cfg-ping-contract.md`
   - Runtime 三行请求、两行响应契约的 CFG 感知静态验证
   - `PING` 第一行响应确认是 `PONG`
-  - 记录跨连接循环污染、路径状态上限和 dry-run 阻断项
+  - 记录跨连接循环污染和 dry-run 阻断项
 
 - `phases/runtime-readonly-stage25-transaction-boundary.md`
-  - 基于第 23、24 阶段证据建立单连接事务摘要
-  - 确认 `PONG` 后 correlation 第二行回显结构
-  - 隔离后续事务中的 START、STOP_CORE、STOP_RUNTIME 副作用污染
-  - 第 26 阶段脱敏 dry-run 请求构造门禁
+  - 建立单连接事务摘要
+  - 确认 correlation 第二行回显
+  - 隔离后续事务副作用污染
+
+- `phases/runtime-readonly-stage26-sanitized-dry-run-preview.md`
+  - 归一化旧适配计划阻断项
+  - 生成不读取 token 原值的脱敏 PING 请求和响应预览
+  - 固定真实 Socket dry-run 的独立授权门禁
+  - 优先支持升级后单次运行直接得到结果
 
 设计冻结后的核心架构变更必须新增 ADR，不直接覆盖历史结论。
