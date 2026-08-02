@@ -7,7 +7,7 @@
 - 新增模块：`src/sbh_27_runtime_readonly_socket_ping.js`
 - 模块 SHA-256：`06238632ac09d9687d4c500ff35d72002d51754d34fe93ed2e5c9beabb03342a`
 - 授权标识：`stage27-user-authorized-20260802`
-- 状态：实现完成，真机验证待执行
+- 状态：真机验证安全失败；失败发生在 endpoint 读取阶段，未读取 token、未连接 Socket、未发送 PING；修复与重试待新授权
 
 ## 1. 授权边界
 
@@ -48,7 +48,7 @@ TUN 创建
 
 ## 3. 请求与响应
 
-真实请求：
+真实请求设计：
 
 ```text
 <token>\n
@@ -81,165 +81,149 @@ PONG\n
 }
 ```
 
-静态门禁未就绪时：
+本次真机执行时，上述静态门禁全部通过。
 
-```text
-state = readonly_socket_ping_waiting_for_gate
-authorizationConsumed = false
-dryRunInvoked = false
+## 5. Endpoint 约束与首版实现
+
+首版第 27 模块通过：
+
+```javascript
+endpoint = SBH.files.readJson(file, null);
 ```
 
-这种情况不会连接 Socket，下一次运行仍可继续使用同一授权。
-
-## 5. Endpoint 约束
-
-只接受固定路径：
+直接读取：
 
 ```text
 <shortxDir>/SingBoxHub/runtime/control/control_endpoint.json
 ```
 
-校验内容：
+随后校验 schema、runtimePid、socketName 和 token。
 
-- 必须是普通文件；
-- canonical path 必须完全匹配；
-- 文件大小为 1～65536 字节；
-- `schemaVersion == 1`；
-- `runtimePid` 为数字；
-- `socketName` 长度为 1～128，不能包含换行和 NUL；
-- token 长度为 16～256，不能包含换行和 NUL。
+`SBH.files.readJson()` 在读取或 JSON 解析异常时会记录警告并返回 fallback，而首版 fallback 为 `null`。因此底层直接文件读取失败会在上层被统一表现为：
 
-缓存只记录非敏感 endpoint 身份字段：schema、runtimePid、createdAt、文件大小和修改时间。
-
-## 6. 超时与一次性规则
-
-```json
-{
-  "connectTimeoutMs": 1500,
-  "readTimeoutMs": 2000,
-  "totalBudgetMs": 4000,
-  "requestCount": 1,
-  "automaticRetryAllowed": false
-}
+```text
+ENDPOINT_SCHEMA_INVALID
 ```
 
-授权一旦实际消费，无论成功或失败，后续运行都只返回持久化的脱敏结果，不再次读取 token、不再次连接 Socket。需要重试时必须进入新的明确授权阶段。
+这会丢失真正的文件读取或解析异常类型。
 
-## 7. 安全输出
-
-允许输出：
-
-- 是否读取和使用 token；
-- 是否连接 Socket；
-- 是否发送请求；
-- 安全响应状态 `PONG`；
-- correlation 是否匹配；
-- 连接和总耗时；
-- 非敏感 endpoint 身份字段；
-- 脱敏错误码和脱敏错误文本。
-
-禁止输出或缓存：
-
-- token 原值；
-- socketName 原值；
-- correlation 原值；
-- endpoint 原始 JSON；
-- 完整请求报文。
-
-错误文本会替换可能出现的 token 和 socketName，并限制为 512 字符。
-
-## 8. 预期真机结果
-
-首次运行 v24 应完成模块更新并执行一次真实 PING。成功目标：
+## 6. 真机验证结果
 
 ```json
 {
   "entryVersion": 24,
   "moduleSetVersion": "20260802.21",
-  "sync.updated": true,
-  "sync.downloadedCount": 27,
-  "runtimeReadonlySocketPing": "readonly_socket_ping_verified",
-  "runtimeProtocolAdapterPlan": "readonly_ping_verified",
-  "runtimeReadonlySocketPingDetails": {
-    "authorizationConsumed": true,
-    "endpointContractReady": true,
-    "tokenValueRead": true,
-    "tokenValueUsed": true,
-    "tokenValueExposed": false,
-    "socketNameValueRead": true,
-    "socketNameValueExposed": false,
-    "correlationGenerated": true,
-    "correlationExposed": false,
-    "requestSent": true,
-    "requestCount": 1,
-    "responseRead": true,
-    "responseLineCount": 2,
-    "responseStatus": "PONG",
-    "responseStatusMatched": true,
-    "correlationMatched": true,
-    "socketConnectionAttempted": true,
-    "socketConnected": true,
-    "socketClosed": true,
-    "sensitiveReferencesCleared": true,
-    "coreStartInvoked": false,
-    "coreStopInvoked": false,
-    "runtimeStopInvoked": false,
-    "unknownCommandInvoked": false,
-    "coreClientMainInvoked": false,
-    "markerFileCreated": false,
-    "runtimeFilesModified": false,
-    "writeOperationsLocked": true,
-    "destructiveOperations": false,
-    "error": null
-  }
+  "runtimeReadonlySocketPing": "readonly_socket_ping_failed",
+  "protocolAdapterPlanState": "readonly_ping_verification_failed",
+  "authorizationConsumed": true,
+  "dryRunInvoked": true,
+  "endpointFileExists": true,
+  "endpointValueRead": true,
+  "endpointContractReady": false,
+  "endpointSchemaValidated": false,
+  "errorCode": "READONLY_SOCKET_PING_FAILED",
+  "error": "Error: ENDPOINT_SCHEMA_INVALID",
+  "totalElapsedMs": 1
 }
 ```
 
-第二次运行必须显示：
+关键安全结果：
 
 ```json
 {
-  "reusedCachedResult": true,
-  "automaticExecution": false,
-  "source": "persisted_one_shot_result"
+  "tokenValueRead": false,
+  "tokenValueUsed": false,
+  "socketNameValueRead": false,
+  "socketNameValueUsed": false,
+  "correlationGenerated": false,
+  "requestConstructedInMemory": false,
+  "requestSerialized": false,
+  "requestSent": false,
+  "requestCount": 0,
+  "responseRead": false,
+  "socketConnectionAttempted": false,
+  "socketConnected": false,
+  "runtimeFilesModified": false,
+  "destructiveOperations": false,
+  "sensitiveReferencesCleared": true
 }
 ```
 
-且不得建立第二次 Socket 连接。
+结论：失败发生在 Socket 创建之前，不是 Runtime 拒绝、连接超时、认证失败或协议响应错误。
 
-## 9. 失败判定
+## 7. 根因定位
 
-失败状态：
+前置 `runtimeProtocolDiscovery` 对同一 endpoint 已通过 `runtime.endpointProbe()` 的 root Shell + Base64 内存通道成功解析，并确认：
 
-```text
-readonly_socket_ping_failed
+```json
+{
+  "parseOk": true,
+  "endpointSchemaVersion": "1",
+  "authenticationDeclared": true,
+  "transportKind": "unix_socket",
+  "endpointSize": 616
+}
 ```
 
-常见错误码：
+因此 Runtime endpoint 本身具备 schemaVersion、socketName 和 token。首版第 27 模块失败的直接原因是：
+
+1. 改用 Java `FileInputStream` 直接读取 Runtime endpoint；
+2. `SBH.files.readJson()` 吞掉了底层读取或解析异常并返回 `null`；
+3. `validateEndpoint()` 将 `null` 统一映射为 `ENDPOINT_SCHEMA_INVALID`；
+4. 实际 Socket 逻辑完全没有执行。
+
+当前日志不能进一步区分直接读取失败属于 SELinux、文件瞬时一致性还是解析异常，因为原始异常已被 `readJson()` 隐藏。
+
+## 8. 修复方案
+
+修复版不得继续使用直接 Java 文件读取，改为复用已验证的 endpoint probe：
 
 ```text
-ENDPOINT_FILE_NOT_FOUND
-ENDPOINT_CANONICAL_PATH_MISMATCH
-ENDPOINT_FILE_SIZE_INVALID
-ENDPOINT_SCHEMA_INVALID
-ENDPOINT_RUNTIME_PID_INVALID
-ENDPOINT_SOCKET_NAME_INVALID
-ENDPOINT_TOKEN_INVALID
-TOTAL_EXECUTION_BUDGET_EXCEEDED
-UNEXPECTED_RESPONSE_STATUS
-CORRELATION_ECHO_MISMATCH
-READONLY_SOCKET_PING_FAILED
+SBH.runtime.endpointProbe()
+  -> root Shell 只读
+  -> canonical path / uid / gid / mode / size / mtime
+  -> Base64 endpoint bytes
+  -> 内存 JSON.parse
 ```
 
-失败结果也不会自动重试。
+要求：
+
+1. 不新增额外 Shell 扫描；复用第 14 模块已生成的 probe；
+2. 校验 `probe.exists == true`；
+3. 校验 `probe.real` 等于标准 canonical path；
+4. 校验 `uid=1000`、`gid=1000`、`mode=600`；
+5. 校验 size 为 1～65536；
+6. 仅在内存中 Base64 解码和解析；
+7. 解析后立即清除原始 JSON、Base64、token 和 socketName 引用；
+8. 将具体校验错误码直接写入 `errorCode`，不再统一降级成 `READONLY_SOCKET_PING_FAILED`；
+9. 不缓存 endpoint 原始数据和敏感字段；
+10. 保持一次授权一次连接、禁止自动重试。
+
+## 9. 授权状态
+
+首版结果已持久化为：
+
+```text
+source = persisted_one_shot_result
+authorizationConsumed = true
+automaticRetryAllowed = false
+```
+
+因此再次运行当前 v24 只会复用失败结果，不会重新读取 endpoint 或连接 Socket。
+
+虽然真实 Socket 尚未建立，但首版阶段契约明确规定“一旦实际消费，无论成功或失败均不自动重试”。修复后的第二次尝试必须使用新的授权标识，不能静默复用本次授权。
 
 ## 10. 下一阶段门禁
 
-只有真实结果满足以下条件，才允许将该能力接入稳定的只读状态层：
+新的明确授权后，允许一次性执行修复版只读 PING。目标结果仍为：
 
 ```json
 {
   "state": "readonly_socket_ping_verified",
+  "endpointContractReady": true,
+  "tokenValueRead": true,
+  "requestCount": 1,
+  "responseStatus": "PONG",
   "responseStatusMatched": true,
   "correlationMatched": true,
   "socketClosed": true,
@@ -250,4 +234,4 @@ READONLY_SOCKET_PING_FAILED
 }
 ```
 
-下一阶段不得自动开放 START、STOP_CORE 或 STOP_RUNTIME。任何生命周期控制必须重新建立独立协议证据、UI 确认和写操作门禁。
+任何生命周期控制命令仍保持禁止。
