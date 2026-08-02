@@ -9,19 +9,19 @@
 - 模块内部版本：`runtimeReadonlySocketPing = 3`
 - 模块 SHA-256：`4a271446bf26bbc6a7efc2721d55666e97c128f28b647e21617274a73f4e0def`
 - 授权标识：`stage27-retry2-user-authorized-20260802`
-- 状态：实现完成，真机一次性验证待执行
+- 状态：真机验证完成，安全失败，未连接 Socket
 
-## 1. 本次授权
+## 1. 阶段目标
 
-重试 1 的授权已在 endpoint 所有者校验失败时消费。用户随后回复“下一步”，本阶段将其视为仅针对身份绑定修复版的一次性只读 `PING` 新授权。
+删除重试 1 中固定的 `uid=1000/gid=1000` 假设，通过 endpoint 内的 `runtimePid` 读取 `/proc/<pid>/status`，将 endpoint 文件身份与 Runtime 进程身份绑定后，再决定是否执行一次只读 `PING`。
 
-允许：
+仅允许：
 
 ```text
 PING
 ```
 
-禁止：
+始终禁止：
 
 ```text
 START
@@ -31,159 +31,113 @@ STOP_RUNTIME
 TUN、路由、配置和 Runtime 文件修改
 ```
 
-## 2. 根因修复
+## 2. 实现内容
 
-重试 1 把 endpoint 文件所有者固定为：
+1. 优先复用 120 秒内的 endpoint probe；
+2. 缺失或过期时只刷新 endpoint，不再执行完整 Runtime inventory；
+3. 校验 canonical path、`mode=600`、文件大小、schema 和 `runtimePid`；
+4. 通过 root Shell 读取 `/proc/<runtimePid>/status`；
+5. 绑定 endpoint UID/GID 与进程 effective/fs UID/GID；
+6. 二次 stat endpoint，检查身份与元数据稳定性；
+7. 所有校验完成前不提取 token 和 socketName。
 
-```text
-uid = 1000
-gid = 1000
-```
+## 3. 真机结果
 
-重试 2 删除该固定假设。新的校验顺序为：
-
-1. 优先复用 120 秒内、无错误且包含 Base64 数据的 Runtime Client endpoint probe；
-2. probe 缺失、过期或异常时，仅执行 endpoint 专用只读 Shell，不再调用完整 Runtime inventory；
-3. 校验 endpoint canonical path、`mode=600`、大小、schema 和 `runtimePid`；
-4. 使用 root 只读 Shell读取 `/proc/<runtimePid>/status` 的 UID/GID；
-5. 要求 endpoint UID 与进程 effective UID 或 fs UID 匹配；
-6. 要求 endpoint GID 与进程 effective GID 或 fs GID 匹配；
-7. 第二次 stat endpoint，确认 UID、GID、mode、size、mtime 和 canonical path 在校验期间未变化；
-8. 只有全部通过后才提取 socketName/token 并建立一次 LocalSocket。
-
-输出仅记录数字身份元数据和匹配依据，不输出 `/proc` 原文、endpoint 原文、Base64、token、socketName 或 correlation。
-
-## 3. 一次性协议
-
-请求：
-
-```text
-<token>\n
-<one-shot correlation>\n
-PING\n
-```
-
-唯一接受响应：
-
-```text
-PONG\n
-<same correlation>\n
-```
-
-限制：
-
-```json
-{
-  "connectTimeoutMs": 1500,
-  "readTimeoutMs": 2000,
-  "totalBudgetMs": 15000,
-  "requestCountMaximum": 1,
-  "automaticRetryAllowed": false
-}
-```
-
-## 4. 缓存隔离
-
-缓存 schema 升级到 `3`，授权标识升级到：
-
-```text
-stage27-retry2-user-authorized-20260802
-```
-
-重试 1 的失败缓存不会被复用。重试 2 一旦消费授权，无论成功还是失败，后续运行只复用脱敏结果，不再次读取 token 或连接 Socket。
-
-## 5. 关键失败码
-
-```text
-ROOT_SHELL_REQUIRED
-ENDPOINT_METADATA_INVALID
-ENDPOINT_IDENTITY_CHANGED
-ENDPOINT_RUNTIME_OWNER_MISMATCH
-RUNTIME_PROCESS_NOT_FOUND
-RUNTIME_PROCESS_STATUS_UNAVAILABLE
-RUNTIME_PROCESS_UID_INVALID
-RUNTIME_PROCESS_GID_INVALID
-TOTAL_EXECUTION_BUDGET_EXCEEDED
-UNEXPECTED_RESPONSE_STATUS
-CORRELATION_ECHO_MISMATCH
-```
-
-## 6. 安全边界
-
-始终保持：
-
-```json
-{
-  "commandAllowlist": ["PING"],
-  "automaticRetryAllowed": false,
-  "coreStartInvoked": false,
-  "coreStopInvoked": false,
-  "runtimeStopInvoked": false,
-  "unknownCommandInvoked": false,
-  "coreClientMainInvoked": false,
-  "markerFileCreated": false,
-  "runtimeFilesModified": false,
-  "tokenValueExposed": false,
-  "socketNameValueExposed": false,
-  "correlationExposed": false,
-  "writeOperationsLocked": true,
-  "destructiveOperations": false
-}
-```
-
-## 7. 真机目标
-
-继续使用 v24 入口。首次运行应只下载变更后的第 27 模块，并消费一次新授权。
-
-成功目标：
+执行结果：
 
 ```json
 {
   "entryVersion": 24,
   "moduleSetVersion": "20260802.23",
-  "runtimeReadonlySocketPing": "readonly_socket_ping_verified",
-  "runtimeProtocolAdapterPlan": "readonly_ping_verified",
-  "runtimeReadonlySocketPingDetails": {
-    "schemaVersion": 3,
-    "authorizationConsumed": true,
-    "endpointFileCanonical": true,
-    "endpointModeValidated": true,
-    "endpointSchemaValidated": true,
-    "endpointIdentityStable": true,
-    "runtimeProcessIdentityChecked": true,
-    "runtimeProcessExists": true,
-    "runtimeProcessIdentityValidated": true,
-    "endpointOwnerValidated": true,
-    "endpointContractReady": true,
-    "tokenValueRead": true,
-    "tokenValueExposed": false,
-    "requestSent": true,
-    "requestCount": 1,
-    "responseStatus": "PONG",
-    "responseStatusMatched": true,
-    "correlationMatched": true,
-    "socketConnected": true,
-    "socketClosed": true,
-    "runtimeFilesModified": false,
-    "destructiveOperations": false,
-    "errorCode": null,
-    "error": null
+  "runtimeReadonlySocketPing": "readonly_socket_ping_retry2_failed",
+  "errorCode": "RUNTIME_PROCESS_UID_INVALID",
+  "authorizationConsumed": true,
+  "automaticRetryAllowed": false
+}
+```
+
+Endpoint 已确认：
+
+```json
+{
+  "endpointFileExists": true,
+  "endpointFileCanonical": true,
+  "endpointModeValidated": true,
+  "endpointSchemaValidated": true,
+  "endpointIdentity": {
+    "schemaVersion": 1,
+    "runtimePid": 27363,
+    "uid": 0,
+    "gid": 0,
+    "mode": "600",
+    "size": 616,
+    "mtimeEpochSeconds": 1785580778
   }
 }
 ```
 
-第二次运行必须返回：
+Runtime 进程目录和 status 文件可访问：
 
 ```json
 {
-  "reusedCachedResult": true,
-  "automaticExecution": false,
-  "source": "persisted_one_shot_result"
+  "runtimeProcessIdentityChecked": true,
+  "runtimeProcessExists": true,
+  "runtimeProcessIdentityValidated": false,
+  "runtimeProcessIdentity": null
 }
 ```
 
-且不得建立第二次 Socket 连接。
+失败发生在 UID 数值提取阶段。重试 2 使用以下形式：
 
-## 8. 下一阶段门禁
+```sh
+/system/bin/toybox awk '/^Uid:/{print $2}' /proc/<pid>/status
+```
 
-只有本次真实 `PING` 成功并且第二次运行确认缓存复用，才允许进入稳定只读状态适配层。生命周期控制命令仍保持关闭。
+至少一个 UID 输出为空，因此触发 `RUNTIME_PROCESS_UID_INVALID`。当前版本未保留 shellErr 和 shellCode，无法从结果中直接证明是 toybox 缺少 awk applet，还是该 applet 在当前环境返回空值；下一阶段将彻底移除该依赖。
+
+## 4. 性能结果
+
+```json
+{
+  "endpointRefreshElapsedMs": 560,
+  "processIdentityElapsedMs": 725,
+  "totalElapsedMs": 1287
+}
+```
+
+相比重试 1 的约 19 秒完整刷新，endpoint 专用 probe 已显著缩短执行时间。
+
+## 5. 安全结果
+
+```json
+{
+  "endpointValueRead": true,
+  "tokenValueRead": false,
+  "socketNameValueRead": false,
+  "correlationGenerated": false,
+  "requestSent": false,
+  "requestCount": 0,
+  "responseRead": false,
+  "socketConnectionAttempted": false,
+  "socketConnected": false,
+  "runtimeFilesModified": false,
+  "destructiveOperations": false
+}
+```
+
+本轮授权已消费，后续运行只复用脱敏失败缓存，不会自动再次连接。
+
+## 6. 结论
+
+重试 2 完成了 endpoint 真实身份确认：文件属于 `uid=0/gid=0`，权限和 schema 均正确。阻断项仅剩 `/proc` 身份字段解析实现，不是 endpoint、认证、Socket 或 PING 协议失败。
+
+## 7. 下一阶段门禁
+
+重试 3 必须：
+
+1. 使用 `/system/bin/sh` 内建 `read + case` 解析 `Uid:` 和 `Gid:`，不依赖 awk；
+2. 保存 Shell 退出码和是否存在 stderr，但不输出原始 stderr；
+3. 检查 `/proc/<pid>/cmdline` 是否包含 endpoint 声明的 `serverClass` 或 `runtimeJar`；
+4. 继续执行 endpoint 二次 stat；
+5. 全部通过后才允许提取 token 并发送一次 `PING`；
+6. 使用新的缓存 schema 和一次性授权标识。
