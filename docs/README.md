@@ -144,7 +144,18 @@
   - 新增认证只读 Runtime 状态模块和隔离测试入口
   - 常驻候选集清理为基础 UI 1–16 加新模块 30，共 17 个模块
   - 阶段 17–29 保留在仓库但退出常驻 manifest
-  - 模块集 `20260803.01`，真机验证待执行
+  - 模块集 `20260803.01`
+
+- `phases/runtime-stage31-true-device-auth-success-ui-blank.md`
+  - 认证 PING、`PONG` 和 correlation 全部通过
+  - 顶部栏与“只读已接入”徽标正常，但页面主体和底部导航持续空白
+  - Stage 31 UI 集成门禁未通过，正式入口不提升
+
+- `phases/runtime-stage31-retry1-bounded-ui-render-recovery.md`
+  - 新增有限首页重绘恢复模块，不修改 Runtime 服务端
+  - UI 队列立即重绘一次，并在 `220ms` 后执行一次有限兜底
+  - 不轮询、不自动循环重试、不增加第二次认证 PING
+  - 模块集 `20260803.02`，入口最低版本 `32`
 
 - `phases/runtime-stage29-bootstrap-aftermath-probe.md`
   - 只读确认控制服务、endpoint、临时文件和日志错误信号
