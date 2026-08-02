@@ -77,6 +77,17 @@
   - 只确认前置检查完成，不能据此断言控制服务从未启动
   - 未读取 token、未连接 Socket、未发送请求
 
+- `phases/runtime-stage28-true-device-launcher-timeout.md`
+  - 记录 `startupResult` 为空和约 12 秒超时证据
+  - 定位后台子 Shell 加 `wait` 导致启动器未脱离
+  - 明确下一次执行必须先识别可能遗留的控制服务
+
+- `phases/runtime-stage28-retry1-detached-launch.md`
+  - 使用独立 Rhino ES5 入口，避免再次加载完整 UI 模块
+  - 复用有效控制服务，或定向清理唯一孤立控制服务
+  - 直接 `nohup app_process &`，不再等待长期服务退出
+  - 最多发送一次固定只读 `PING`，真机验证待执行
+
 - `phases/runtime-stage29-bootstrap-aftermath-probe.md`
   - 只读确认控制服务、endpoint、临时文件和日志错误信号
   - 不启动或停止进程，不读取 token，不连接 Socket
