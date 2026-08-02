@@ -6,7 +6,7 @@
 - 入口最低版本：`21`
 - 新增模块：`src/sbh_24_runtime_dex_cfg_contract.js`
 - 模块 SHA-256：`3faf283736ee4b6e975e42cce08590f5f723a5e43b616f36dcb19614aba4b797`
-- 状态：实现完成，真机验证待执行
+- 状态：真机验证完成；静态协议主体识别通过；显式 dry-run 门禁未通过
 
 ## 1. 阶段目标
 
@@ -23,115 +23,32 @@
 
 ## 2. 已确认的输入证据
 
-第 23 阶段真机结果确认：
+第 23 阶段确认客户端固定发送：
 
 ```text
-LocalSocketAddress.name  <- client arg[0]
-请求第 0 行              <- client arg[1]，服务端与 server arg[1] 比较
-请求第 1 行              <- client arg[2]
-请求第 2 行              <- client arg[3]，服务端与 PING 比较
-客户端期望响应第 0 行    <- client arg[4]
-客户端期望响应第 1 行    <- client arg[5]
-客户端成功标记文件       <- client arg[6]
+第 0 行：token        <- client arg[1]
+第 1 行：correlation  <- client arg[2]
+第 2 行：command      <- client arg[3]
 ```
 
-请求格式：
-
-```text
-token\n
-correlation\n
-command\n
-```
-
-响应格式候选：
-
-```text
-status\n
-correlation\n
-```
-
-第 23 阶段仍未可靠解决的内容：
-
-- `PING` 第一行响应是 `PONG`、`RUNNING`，还是根据核心进程状态二选一。
-- 正常响应与异常响应写入点的准确控制流归属。
-- `START`、停止路径和异常处理路径对寄存器状态的污染。
+Socket 名称来自 `client arg[0]`。客户端读取两行响应，并使用 `client arg[4]`、`client arg[5]` 比较响应状态和关联值；直接调用 `CoreClientMain.main()` 会创建 `client arg[6]` 指定的成功标记文件，因此后续禁止复用该入口。
 
 ## 3. 实现内容
 
-新增模块 `sbh_24_runtime_dex_cfg_contract.js`，主要实现：
+模块 `sbh_24_runtime_dex_cfg_contract.js` 实现：
 
-### 3.1 DEX 结构解析
-
-- `string_ids`
-- `type_ids`
-- `proto_ids`
-- `field_ids`
-- `method_ids`
-- `class_defs`
-- `class_data_item`
-- `code_item`
-- `try_item`
-- `encoded_catch_handler_list`
-
-### 3.2 指令和 CFG
-
-支持本 Runtime 所需的主要指令格式：
-
-- `move*`、`move-result*`
-- `const*`、`const-string*`
-- `aget-object`、`aput-object`
-- `new-instance`、`new-array`、`filled-new-array`
-- `iget/iput`、`sget/sput`
-- `invoke-*` 35c/3rc
-- `if-*`
-- `goto*`
-- `packed-switch`、`sparse-switch`
-- 返回、抛出和异常处理器边
-
-### 3.3 路径敏感抽象解释
-
-每条路径独立维护：
-
-- 寄存器符号值
-- 静态字段值
-- 数组元素
-- 对象构造参数
-- Reader/Writer 当前行号
-- 分支条件
-- 异常路径标记
-
-在控制流汇合处不复用线性遍历留下的寄存器状态，避免第 23 阶段出现的类型不可能组合。
-
-### 3.4 契约输出
-
-模块输出包括：
-
-- `requestSchema`
-- `responseSchema`
-- `tokenValidationEvidence`
-- `commandValidationEvidence`
-- `correlationEchoEvidence`
-- `pingPathEvidence`
-- `pingExpectedResponses`
-- `pingSideEffectEvidence`
-- `exceptionResponseEvidence`
-- `clientCfg`
-- `serverCfg`
-- `pingResponseStatusResolved`
-- `correlationEchoConfirmed`
-- `readOnlyPingContractReady`
+- DEX 字符串、类型、字段、方法、类、代码项和异常处理表解析；
+- `move*`、`const*`、数组、对象、字段、`invoke-*`、分支、跳转和 switch 指令解析；
+- 路径独立的寄存器、静态字段、数组、对象、Reader/Writer 行号和条件状态；
+- 请求、响应、token、command、correlation、PING、START、异常响应和副作用证据输出；
+- 固定只读门禁，不连接 Socket、不执行 DEX、不读取 token 值。
 
 ## 4. 安全边界
 
-本阶段仅通过 root Shell 读取生产 JAR 中的 `classes.dex`，随后在 Rhino 内存中静态解析。
-
-固定状态：
+真机两次执行均保持：
 
 ```json
 {
-  "classLoadingPerformed": false,
-  "classInitializationPerformed": false,
-  "classInstantiationPerformed": false,
   "socketConnectionAttempted": false,
   "methodInvocationPerformed": false,
   "dexExecuted": false,
@@ -147,11 +64,9 @@ correlation\n
 }
 ```
 
-即使静态契约完整，本阶段也不会连接 Runtime Socket。后续探测必须使用自建最小 `LocalSocket` 客户端，不能调用会创建成功标记文件的 `CoreClientMain.main()`。
+## 5. 真机验证结果
 
-## 5. 真机验证清单
-
-首次运行入口 v21：
+### 5.1 首次执行
 
 ```json
 {
@@ -159,56 +74,116 @@ correlation\n
   "moduleSetVersion": "20260802.18",
   "sync.updated": true,
   "sync.downloadedCount": 24,
-  "app.runtimeDexCfgContract": "checking"
+  "sync.warning": null,
+  "runtimeDexCfgContract": "checking"
 }
 ```
 
-后台完成后再次运行，重点检查：
+结论：入口、清单和第 24 模块同步正常；首次返回为后台分析尚未完成的启动快照。
 
-```text
-runtimeDexCfgContract
-runtimeDexCfgContractDetails.state
-runtimeDexCfgContractDetails.clientCfg
-runtimeDexCfgContractDetails.serverCfg
-runtimeDexCfgContractDetails.requestSchema
-runtimeDexCfgContractDetails.responseSchema
-runtimeDexCfgContractDetails.tokenValidationConfirmed
-runtimeDexCfgContractDetails.commandCarrierConfirmed
-runtimeDexCfgContractDetails.correlationEchoConfirmed
-runtimeDexCfgContractDetails.pingPathEvidence
-runtimeDexCfgContractDetails.pingExpectedResponses
-runtimeDexCfgContractDetails.pingSideEffectEvidence
-runtimeDexCfgContractDetails.pingResponseStatusResolved
-runtimeDexCfgContractDetails.readOnlyPingContractReady
-runtimeDexCfgContractDetails.cfgDiagnostics
-runtimeDexCfgContractDetails.error
-```
-
-理想结果：
+### 5.2 第二次执行
 
 ```json
 {
-  "state": "readonly_ping_contract_ready",
-  "framingState": "three_line_request_two_line_response_confirmed",
+  "runtimeDexCfgContract": "cfg_protocol_contract_identified",
+  "cfgEvidenceAvailable": true,
   "tokenValidationConfirmed": true,
   "commandCarrierConfirmed": true,
-  "correlationEchoConfirmed": true,
+  "oneRequestOneResponseConfirmed": true,
+  "pingBranchConfirmed": true,
   "pingResponseStatusResolved": true,
-  "pingSideEffectFree": true,
-  "readOnlyPingContractReady": true,
+  "pingExpectedResponses": ["PONG"],
+  "correlationEchoConfirmed": false,
+  "pingSideEffectFree": false,
+  "readOnlyPingContractReady": false,
+  "readyForExplicitDryRun": false,
   "error": null
 }
 ```
 
-## 6. 下一阶段条件
+已确认请求结构：
 
-只有以下条件全部成立，才允许进入第 25 阶段的“显式只读 PING dry-run 适配器”设计：
+```text
+token\n
+correlation\n
+command\n
+```
 
-1. `readOnlyPingContractReady=true`
-2. `pingExpectedResponses` 仅包含已确认安全状态，例如 `PONG`、`RUNNING`
-3. `correlationEchoConfirmed=true`
-4. `pingSideEffectEvidence=[]`
-5. `cfgDiagnostics=[]`
-6. 所有写操作门禁仍保持锁定
+已确认字段映射：
 
-第 25 阶段仍需先实现 dry-run 请求构造和预览，不直接发送真实 Socket 报文。
+```text
+socketName  <- client arg[0]
+token       <- client arg[1] -> request line 0
+correlation <- client arg[2] -> request line 1
+command     <- client arg[3] -> request line 2
+```
+
+已确认 `PING` 第一行响应：
+
+```text
+PONG
+```
+
+### 5.3 当前阻断项
+
+```text
+PATH_STATE_LIMIT_REACHED
+CORRELATION_ECHO_NOT_CONFIRMED
+PING_PATH_SIDE_EFFECT_FOUND
+```
+
+分析器输出的 `PING` 副作用路径包含如下不可能属于同一请求的连续条件：
+
+```text
+当前 requestLine[2] == PING
+后续 requestLine[5] == START / STOP_CORE / STOP_RUNTIME
+```
+
+同时响应模式被累计为 6 行，而实际协议单次事务应为两行。这表明服务端 `accept()` 循环进入下一次连接后，分析器仍保留上一事务的 `PING=true` 条件，并把后续连接中的 `Runtime.exec()`、`Process.destroy()` 错误归入初始 PING 路径。
+
+因此：
+
+- `PONG` 结论可信；
+- token 和 command 行号结论可信；
+- `PING_PATH_SIDE_EFFECT_FOUND` 当前属于高概率静态分析误报，不能当作真实 Runtime 副作用；
+- correlation 第二行回显已有第 23 阶段的写入证据，但第 24 阶段尚未在单事务边界内闭环；
+- 在误报消除前，不允许真实 Socket dry-run。
+
+## 6. 阶段结论
+
+第 24 阶段达到“协议主体识别通过”，但未达到“只读 PING 契约可执行”。
+
+```json
+{
+  "protocolShapeResolved": true,
+  "pingResponseResolved": true,
+  "transactionBoundaryResolved": false,
+  "correlationEchoResolved": false,
+  "pingSideEffectFreeResolved": false,
+  "readOnlyPingContractReady": false
+}
+```
+
+## 7. 下一阶段门禁
+
+下一阶段不是实际 Socket dry-run，而是“单连接事务边界与循环摘要修正”。必须完成：
+
+1. 将 `LocalServerSocket.accept()` 的每次循环迭代视为独立事务；
+2. 在循环回边清除 Reader、Writer、请求行、响应行和分支条件；
+3. 对单次请求限定最多 3 行读取、2 行写入；
+4. 单独验证 `PING -> PONG + requestLine[1]`；
+5. 排除后续 START、STOP_CORE、STOP_RUNTIME 路径对 PING 的污染；
+6. 消除 `PATH_STATE_LIMIT_REACHED`；
+7. 只有以下结果全部成立才允许设计显式 dry-run：
+
+```json
+{
+  "correlationEchoConfirmed": true,
+  "pingSideEffectEvidence": [],
+  "pingSideEffectFree": true,
+  "cfgDiagnostics": [],
+  "readOnlyPingContractReady": true
+}
+```
+
+后续阶段仍只允许静态分析，不读取 token 值、不连接 Runtime Socket、不调用 `CoreClientMain.main()`。
