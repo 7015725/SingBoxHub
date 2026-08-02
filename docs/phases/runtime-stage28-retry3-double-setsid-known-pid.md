@@ -3,7 +3,7 @@
 - 日期：2026-08-03
 - 分支：`agent/runtime-client-readonly-20260802`
 - 下载文件：`SingBoxHub_Runtime控制服务双setsid重试3.txt`
-- 下载文件 SHA-256：`2d4cc40cc5903fb28094a69dec861a87de9f835d63ea31102c7be03908a1b6f7`
+- 下载文件 SHA-256：`c5f5ced57468d50626a7ebcafe7e87413c25e6bc51fe7ce82780ea0e86a55574`
 - 授权标识：`stage28-retry3-double-setsid-known-pid-user-authorized-20260803`
 - 阶段：`runtime_stage28_retry3`
 - 状态：实现完成，真机单次验证待执行
