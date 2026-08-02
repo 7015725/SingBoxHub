@@ -61,4 +61,10 @@
   - 增加 Runtime cmdline 身份绑定与 endpoint 二次 stat
   - 继续执行一次授权、一次 PING、禁止自动重试
 
+- `phases/runtime-readonly-stage27-retry3-true-device.md`
+  - Shell 内建解析不再触发 UID 解析错误
+  - 确认 endpoint 中的 `runtimePid=27363` 已不存在，文件属于过期 endpoint
+  - 未读取 token、未连接 Socket、未发送请求
+  - 下一门禁改为先恢复或重新附加 Runtime 控制服务
+
 设计冻结后的核心架构变更必须新增 ADR，不直接覆盖历史结论。
