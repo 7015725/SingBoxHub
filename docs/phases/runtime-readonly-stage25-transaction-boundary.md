@@ -6,25 +6,24 @@
 - 入口最低版本：`22`
 - 新增模块：`src/sbh_25_runtime_transaction_contract.js`
 - 模块 SHA-256：`2312b511c02d754f28105558f2c54e01b9a9da57d8041de58d87e2e78d322d44`
-- 状态：实现完成，真机验证待执行
+- 状态：真机验证通过；只读 PING 静态契约已就绪；真实 Socket dry-run 尚未启用
 
 ## 1. 阶段目标
 
 第 24 阶段已确认三行请求、`PING` 命令和 `PONG` 响应，但 CFG 遍历跨越 `LocalServerSocket.accept()` 循环迭代，导致后续事务中的 START、STOP_CORE、STOP_RUNTIME 被错误归入当前 PING 路径。
 
-本阶段不修改第 24 阶段原始证据，而新增独立二次解析模块：
+本阶段新增独立二次解析模块，不改写第 23、24 阶段原始证据：
 
-1. 将请求固定为单事务三行：token、correlation、command。
-2. 将响应固定为单事务两行：status、correlation。
-3. 以第 24 阶段路径证据确认 `PING -> PONG`。
-4. 结合第 23 阶段方法调用顺序确认同一 Writer 在 `PONG` 后写出 `server.requestLine[1]` 并 flush。
-5. 将条件中出现 `server.readLine[3]` 及更高索引的副作用分类为跨事务污染。
-6. 只将请求行 0～2 条件下的副作用视为当前事务副作用。
-7. 在不连接 Socket、不读取 token 值的前提下判断只读 PING 契约是否完整。
+1. 固定单事务三行请求：token、correlation、command。
+2. 固定单事务两行响应：status、correlation。
+3. 确认 `PING -> PONG`。
+4. 确认同一 Writer 在 `PONG` 后写出 `server.requestLine[1]` 并 flush。
+5. 将引用 `server.readLine[3]` 及更高索引的副作用隔离为后续事务污染。
+6. 判断当前 PING 事务是否无副作用。
 
 ## 2. 输入证据
 
-第 24 阶段真机结果：
+第 24 阶段结果：
 
 ```json
 {
@@ -37,9 +36,9 @@
 }
 ```
 
-响应累计为 6 行，以及副作用条件同时出现 `server.readLine[2] == PING` 和 `server.readLine[5] == START/STOP_*`，证明原分析跨越多次连接事务。
+响应累计为 6 行，且同一路径中同时出现 `server.readLine[2] == PING` 与 `server.readLine[5] == START/STOP_*`，证明旧分析跨越了多次连接事务。
 
-第 23 阶段调用顺序提供结构证据：
+第 23 阶段方法调用顺序提供结构证据：
 
 ```text
 status write
@@ -49,38 +48,21 @@ newLine
 flush
 ```
 
-第 24 阶段已将该 status write 路径解析为 `PONG`。
-
 ## 3. 实现内容
 
-新增 `sbh_25_runtime_transaction_contract.js`：
+`sbh_25_runtime_transaction_contract.js`：
 
 - 消费 `runtimeDexCfgContract` 与 `runtimeDexProtocolDataflow`；
 - 不重新读取 Runtime JAR，不执行 DEX；
-- 校验三行请求参数固定为 `arg:1`、`arg:2`、`arg:3`；
-- 从第 24 阶段 `pingPathEvidence` 中筛选仅引用请求行 0～2 的 PONG 路径；
-- 从第 23 阶段 `serverCallTrace` 中验证同一 Writer 的 `PONG -> newline -> requestLine[1] -> newline -> flush`；
-- 将引用请求行 3 及以上的副作用移入 `ignoredCrossTransactionSideEffects`；
+- 校验请求三行固定来自 `arg:1`、`arg:2`、`arg:3`；
+- 筛选只引用请求行 0～2 的 PONG 路径；
+- 验证同一 Writer 的 `PONG -> newline -> requestLine[1] -> newline -> flush`；
+- 将请求行 3 及以上条件下的副作用移入 `ignoredCrossTransactionSideEffects`；
 - 输出当前事务副作用、事务边界、correlation 回显和门禁状态。
 
-主要输出：
-
-```text
-runtimeTransactionContract
-runtimeTransactionContractDetails.requestSchemaConfirmed
-runtimeTransactionContractDetails.responseSchemaConfirmed
-runtimeTransactionContractDetails.correlationEchoConfirmed
-runtimeTransactionContractDetails.transactionBoundaryConfirmed
-runtimeTransactionContractDetails.loopBackStateIsolated
-runtimeTransactionContractDetails.pathStateLimitIsolated
-runtimeTransactionContractDetails.currentTransactionSideEffects
-runtimeTransactionContractDetails.ignoredCrossTransactionSideEffects
-runtimeTransactionContractDetails.pingSideEffectFree
-runtimeTransactionContractDetails.readOnlyPingContractReady
-runtimeTransactionContractDetails.blockers
-```
-
 ## 4. 安全边界
+
+两次真机执行均保持：
 
 ```json
 {
@@ -98,11 +80,9 @@ runtimeTransactionContractDetails.blockers
 }
 ```
 
-即使本阶段门禁通过，也只允许进入 dry-run 请求构造设计，不发送真实 Socket 报文。
+## 5. 真机验证结果
 
-## 5. 预期真机结果
-
-首次执行 v22：
+### 5.1 首次执行
 
 ```json
 {
@@ -110,11 +90,14 @@ runtimeTransactionContractDetails.blockers
   "moduleSetVersion": "20260802.19",
   "sync.updated": true,
   "sync.downloadedCount": 25,
+  "sync.warning": null,
   "runtimeTransactionContract": "checking"
 }
 ```
 
-后台完成后第二次执行目标：
+结论：入口、模块清单和第 25 模块同步正常；首次返回为后台刷新尚未完成的启动快照。
+
+### 5.2 第二次执行
 
 ```json
 {
@@ -123,6 +106,8 @@ runtimeTransactionContractDetails.blockers
   "responseSchemaConfirmed": true,
   "tokenValidationConfirmed": true,
   "commandCarrierConfirmed": true,
+  "pingBranchConfirmed": true,
+  "pingResponseStatusResolved": true,
   "pingExpectedResponses": ["PONG"],
   "correlationEchoConfirmed": true,
   "transactionBoundaryConfirmed": true,
@@ -137,18 +122,93 @@ runtimeTransactionContractDetails.blockers
 }
 ```
 
-## 6. 回滚点
+Correlation 回显闭环证据：
 
-删除第 25 模块并恢复：
-
-```text
-moduleSetVersion = 20260802.18
-entryMinVersion = 21
-moduleCount = 24
+```json
+{
+  "statusWritePc": 260,
+  "statusValue": "PONG",
+  "correlationWritePc": 266,
+  "correlationValue": "server.requestLine[1]",
+  "sameWriter": true,
+  "newlineSeparated": true,
+  "flushed": true,
+  "requestLineIndex": 1,
+  "responseLineIndex": 1
+}
 ```
 
-第 23、24 阶段原始静态证据不修改。
+单事务协议最终确认：
 
-## 7. 下一阶段门禁
+```text
+请求：
+token\n
+correlation\n
+PING\n
 
-只有 `readOnlyPingContractReady=true`、`currentTransactionSideEffects=[]` 且 `blockers=[]` 时，才允许进入显式 dry-run 请求构造阶段。下一阶段仍先输出脱敏请求预览，不读取或展示 token 原值，也不连接 Runtime Socket。
+响应：
+PONG\n
+correlation\n
+```
+
+## 6. 跨事务副作用隔离
+
+当前 PING 事务：
+
+```json
+{
+  "currentTransactionSideEffects": [],
+  "pingSideEffectFree": true
+}
+```
+
+被隔离的后续事务证据包括：
+
+- `Process.destroy()`，PC 195，对应后续 `STOP_CORE` 条件；
+- `Process.destroy()`，PC 228，对应后续 `STOP_RUNTIME` 条件；
+- `Runtime.exec()`，PC 156，对应后续 `START` 条件；
+- 同一 `Runtime.exec()` 因不同进程状态分支产生的重复静态路径。
+
+这些路径均引用 `server.readLine[3]` 或 `server.readLine[5]`，不属于最初的三行 PING 事务。
+
+## 7. 阶段结论
+
+```json
+{
+  "protocolShapeResolved": true,
+  "pingResponseResolved": true,
+  "correlationEchoResolved": true,
+  "transactionBoundaryResolved": true,
+  "pingSideEffectFreeResolved": true,
+  "readOnlyPingContractReady": true
+}
+```
+
+第 25 阶段静态门禁通过。
+
+## 8. 遗留一致性问题
+
+`runtimeTransactionContract` 已将以下证据判定为通过：
+
+```text
+COMMAND_CARRIER_DECLARED
+CORRELATION_FIELD_DECLARED
+```
+
+但旧的 `runtimeProtocolAdapterPlan.requiredEvidence` 和 `blockers` 数组仍保留两项未满足状态，同时 `adapterImplementationAllowed=true`。这是适配计划展示层的状态不一致，不影响第 25 模块的静态结论，但必须在下一阶段修正，避免后续 UI 或门禁读取旧数组。
+
+## 9. 下一阶段门禁
+
+下一阶段允许实现“脱敏 dry-run 请求构造与适配计划归一化”，但仍不得连接 Runtime Socket。
+
+必须完成：
+
+1. 将命令载体与 correlation 证据正式回写适配计划；
+2. 清除旧的 `COMMAND_CARRIER_DECLARED`、`CORRELATION_FIELD_DECLARED` 阻断项；
+3. 构造不含 token 原值的请求预览；
+4. 固定命令只能是 `PING`；
+5. 生成一次性 correlation 候选但不发送；
+6. 输出预期响应 `PONG + correlation echo`；
+7. 保持 `adapterInvocationEnabled=false`、`readyForExplicitDryRun=false`。
+
+只有脱敏预览、旧阻断项归一化和安全字段全部通过，才允许进入真实只读 Socket dry-run 的单独授权阶段。
