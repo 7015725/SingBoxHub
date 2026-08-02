@@ -157,6 +157,37 @@
   - 不轮询、不自动循环重试、不增加第二次认证 PING
   - 模块集 `20260803.02`，入口最低版本 `32`
 
+- `phases/runtime-stage31-true-device-retry2-cross-task-controller-unavailable.md`
+  - 记录独立 ShortX JS 任务无法访问上一任务 Rhino 控制器
+  - `[object Object]` 来源于返回对象未序列化
+  - 废弃跨任务活动窗口修复方案
+
+- `phases/runtime-stage31-retry3-synchronous-first-render.md`
+  - 窗口 `addView` 后在同一主线程回调中同步执行首次 `renderNow(0)`
+  - 不依赖首次 `postDelayed()` 页面构建
+  - 模块集 `20260803.03`
+
+- `phases/runtime-stage31-retry4-persistent-ui-state-diagnostic.md`
+  - 只读读取客户端窗口检查点、UI 状态和模块激活状态
+  - 确认首次 content/nav 子视图均曾成功加入
+  - 不创建 UI、不读取 Runtime endpoint、不发送 PING
+
+- `phases/runtime-stage31-retry5-explicit-frame-geometry.md`
+  - 使用显式 FrameLayout 几何替代 LinearLayout weight
+  - content 和 nav 实际测量高度正常
+  - 模块集 `20260803.05`
+
+- `phases/runtime-stage31-retry5-true-device-content-cleared.md`
+  - 真机确认 content 高度 `2210px`、nav 高度 `209px`
+  - 返回前 content 子视图由 1 变为 0，nav 保持 1
+  - 定位启动后异步 `showPage(0)` 在任务收尾阶段清空页面主体
+
+- `phases/runtime-stage31-retry6-startup-ui-finalizer.md`
+  - 启动阶段抑制旧自动 `refreshAsync` 页面重建
+  - 保留适配器唯一一次认证 PING
+  - 认证完成后在主线程执行最终同步首页渲染和测量
+  - 模块集 `20260803.06`，入口最低版本 `36`
+
 - `phases/runtime-stage29-bootstrap-aftermath-probe.md`
   - 只读确认控制服务、endpoint、临时文件和日志错误信号
   - 不启动或停止进程，不读取 token，不连接 Socket
