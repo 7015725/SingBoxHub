@@ -1,38 +1,1214 @@
-/* SingBoxHub stage27 retry2: PID-bound one-shot read-only PING. Rhino ES5. */
-SBH.versions.runtimeReadonlySocketPing=3;
-(function(){
-var P=Packages,F=P.java.io.File,LS=P.android.net.LocalSocket,LA=P.android.net.LocalSocketAddress,BW=P.java.io.BufferedWriter,OW=P.java.io.OutputStreamWriter,BR=P.java.io.BufferedReader,IR=P.java.io.InputStreamReader,SR=P.java.security.SecureRandom,RA=P.java.lang.reflect.Array,JB=P.java.lang.Byte,JS=P.java.lang.String,B64=P.android.util.Base64,SC=P.tornaco.apps.shortx.core.proto.action.ShellCommand;
-var AUTH="stage27-retry2-user-authorized-20260802",SCHEMA=3,MAX=65536,AGE=120000,BUDGET=15000,CACHE=new F(SBH.paths.cacheDir,"runtime_readonly_socket_ping.json"),cached=SBH.files.readJson(CACHE,null);
-function now(){return Number(SBH.util.now());}
-function close(x){try{if(x!==null&&x!==undefined){x.close();return true;}}catch(e){}return false;}
-function q(x){return "'"+String(x).replace(/'/g,"'\\''")+"'";}
-function cv(d,k){var v=d.get(String(k));return v===null||v===undefined?"":String(v);}
-function sh(cmd,id){var a=SC.newBuilder().setCommand(String(cmd)).setSingleShot(true).setId(id).build(),r=shortx.executeAction(a),d;if(r===null||r===undefined)throw new Error("SHORTX_SHELL_RESULT_NULL");d=r.contextData;if(d===null||d===undefined)throw new Error("SHORTX_SHELL_CONTEXT_UNAVAILABLE");return{out:cv(d,"shellOut"),err:cv(d,"shellErr"),code:Number(d.get("shellCode"))};}
-function map(t){var o={},l=String(t||"").split(/\r?\n/),i,f;for(i=0;i<l.length;i++){f=l[i].split("\t");if(f.length>1)o[String(f[0])]=String(f.slice(1).join("\t"));}return o;}
-function base(s){return{schemaVersion:SCHEMA,state:s||"not_started",authorizationId:AUTH,authorizationConsumed:false,automaticExecution:true,automaticRetryAllowed:false,reusedCachedResult:false,source:"stage27_retry2",commandAllowlist:["PING"],command:"PING",endpointProbeAvailable:false,endpointProbeRefreshed:false,endpointProbeSource:null,endpointProbeAgeMs:null,endpointRefreshElapsedMs:null,endpointFileExists:false,endpointFileCanonical:false,endpointModeValidated:false,endpointSchemaValidated:false,endpointOwnerValidated:false,endpointIdentityStable:false,endpointContractReady:false,endpointIdentity:null,runtimeProcessIdentityChecked:false,runtimeProcessExists:false,runtimeProcessIdentityValidated:false,runtimeProcessIdentity:null,processIdentityElapsedMs:null,endpointValueRead:false,tokenValueRead:false,tokenValueUsed:false,tokenValueExposed:false,socketNameValueRead:false,socketNameValueUsed:false,socketNameValueExposed:false,correlationGenerated:false,correlationLength:0,correlationExposed:false,requestSent:false,requestCount:0,responseRead:false,responseLineCount:0,responseStatus:null,responseStatusMatched:false,correlationMatched:false,socketConnectionAttempted:false,socketConnected:false,socketClosed:false,connectTimeoutMs:1500,readTimeoutMs:2000,totalBudgetMs:BUDGET,attemptStartedAt:0,attemptCompletedAt:0,connectElapsedMs:null,totalElapsedMs:null,sensitiveReferencesCleared:false,adapterImplementationAllowed:false,adapterInvocationEnabled:false,readOnlyStatusAdapterReady:false,coreStartInvoked:false,coreStopInvoked:false,runtimeStopInvoked:false,unknownCommandInvoked:false,coreClientMainInvoked:false,markerFileCreated:false,runtimeFilesModified:false,writeOperationsLocked:true,destructiveOperations:false,safeFailure:true,errorCode:null,error:null,checkedAt:now()};}
-function ep(){if(typeof shortx==="undefined"||shortx===null||typeof shortx.getShortXDir!=="function")throw new Error("SHORTX_DIR_UNAVAILABLE");return new F(new F(String(shortx.getShortXDir()),"SingBoxHub"),"runtime/control/control_endpoint.json");}
-function epath(){return String(ep().getCanonicalPath());}
-function age(p){var c=Number(p&&p.capturedAt?p.capturedAt:0),n=Number(p&&p.now?p.now:0);if(c>0)return Math.max(0,now()-c);if(n>0)return Math.max(0,(Math.floor(now()/1000)-n)*1000);return null;}
-function current(){try{return SBH.runtime&&typeof SBH.runtime.endpointProbe==="function"?SBH.runtime.endpointProbe():null;}catch(e){}return null;}
-function good(p){var a;if(!p||p.exists!==true||p.error||!p.data)return false;a=age(p);return a===null||a<=AGE;}
-function probeCmd(){var l=["T=/system/bin/toybox","printf 'su\\t%s\\n' \"$($T id -u)\"","E="+q(epath()),"if [ -f \"$E\" ]; then","printf 'x\\t1\\n'","printf 'u\\t%s\\n' \"$($T stat -c '%u' \"$E\")\"","printf 'g\\t%s\\n' \"$($T stat -c '%g' \"$E\")\"","printf 'm\\t%s\\n' \"$($T stat -c '%a' \"$E\")\"","printf 's\\t%s\\n' \"$($T stat -c '%s' \"$E\")\"","printf 't\\t%s\\n' \"$($T stat -c '%Y' \"$E\")\"","printf 'r\\t%s\\n' \"$($T readlink -f \"$E\")\"","S=\"$($T stat -c '%s' \"$E\")\"","if [ \"$S\" -gt 0 ] && [ \"$S\" -le "+MAX+" ]; then D=\"$($T base64 \"$E\"|$T tr -d '\\r\\n')\"; printf 'd\\t%s\\n' \"$D\"; fi","else printf 'x\\t0\\n'; fi","printf 'n\\t%s\\n' \"$($T date +%s)\""];return "/system/bin/toybox timeout 5 /system/bin/sh -c "+q(l.join("\n"));}
-function fresh(){var r=sh(probeCmd(),"JS#SBHReadonlyPingRetry2Endpoint"),m=map(r.out);if(String(m.su||"")!=="0")throw new Error("ROOT_SHELL_REQUIRED");return{exists:String(m.x||"0")==="1",uid:String(m.u||""),gid:String(m.g||""),mode:String(m.m||""),size:String(m.s||""),mtime:String(m.t||""),real:String(m.r||""),data:String(m.d||""),now:String(m.n||""),capturedAt:now(),error:r.code===0?null:String(r.err||"")};}
-function load(o){var p=current(),st;if(good(p)){o.endpointProbeAvailable=true;o.endpointProbeSource="runtime_client_cache";o.endpointProbeAgeMs=age(p);return p;}st=now();p=fresh();o.endpointProbeAvailable=true;o.endpointProbeRefreshed=true;o.endpointProbeSource="direct_endpoint_only_refresh";o.endpointProbeAgeMs=age(p);o.endpointRefreshElapsedMs=now()-st;return p;}
-function parse(p){var b=null,t=null;if(p.exists!==true)throw new Error("ENDPOINT_FILE_NOT_FOUND");if(p.error)throw new Error("ENDPOINT_PROBE_ERROR");if(!p.data)throw new Error("ENDPOINT_PROBE_DATA_MISSING");try{b=B64.decode(String(p.data),B64.DEFAULT);t=String(new JS(b,"UTF-8"));return JSON.parse(t);}catch(e){if(String(e).indexOf("ENDPOINT_")>=0)throw e;throw new Error("ENDPOINT_JSON_PARSE_FAILED");}finally{b=null;t=null;}}
-function dig(v){return /^\d+$/.test(String(v||""));}
-function meta(p,e,o){var z=String(p.size||""),u=String(p.uid||""),g=String(p.gid||""),pid;if(String(p.real||"")!==epath())throw new Error("ENDPOINT_CANONICAL_PATH_MISMATCH");o.endpointFileExists=true;o.endpointFileCanonical=true;if(String(p.mode||"")!=="600")throw new Error("ENDPOINT_MODE_INVALID");o.endpointModeValidated=true;if(!dig(z)||!dig(u)||!dig(g)||!dig(p.mtime))throw new Error("ENDPOINT_METADATA_INVALID");if(Number(z)<=0||Number(z)>MAX)throw new Error("ENDPOINT_FILE_SIZE_INVALID");if(!e||Number(e.schemaVersion||0)!==1)throw new Error("ENDPOINT_SCHEMA_INVALID");o.endpointSchemaValidated=true;if(!dig(e.runtimePid))throw new Error("ENDPOINT_RUNTIME_PID_INVALID");pid=Number(e.runtimePid);if(pid<=1||pid>2147483647)throw new Error("ENDPOINT_RUNTIME_PID_INVALID");o.endpointIdentity={schemaVersion:1,runtimePid:pid,createdAt:Number(e.createdAt||0),uid:Number(u),gid:Number(g),mode:String(p.mode),size:Number(z),mtimeEpochSeconds:Number(p.mtime)};return o.endpointIdentity;}
-function procCmd(i){var l=["T=/system/bin/toybox","printf 'su\\t%s\\n' \"$($T id -u)\"","P="+q(String(i.runtimePid)),"E="+q(epath()),"S=\"/proc/$P/status\"","if [ -d \"/proc/$P\" ]; then printf 'x\\t1\\n'; else printf 'x\\t0\\n'; exit 0; fi","if [ -r \"$S\" ]; then printf 'q\\t1\\n'; else printf 'q\\t0\\n'; exit 0; fi","printf 'ur\\t%s\\n' \"$($T awk '/^Uid:/{print $2}' \"$S\")\"","printf 'ue\\t%s\\n' \"$($T awk '/^Uid:/{print $3}' \"$S\")\"","printf 'uf\\t%s\\n' \"$($T awk '/^Uid:/{print $5}' \"$S\")\"","printf 'gr\\t%s\\n' \"$($T awk '/^Gid:/{print $2}' \"$S\")\"","printf 'ge\\t%s\\n' \"$($T awk '/^Gid:/{print $3}' \"$S\")\"","printf 'gf\\t%s\\n' \"$($T awk '/^Gid:/{print $5}' \"$S\")\"","printf 'eu\\t%s\\n' \"$($T stat -c '%u' \"$E\")\"","printf 'eg\\t%s\\n' \"$($T stat -c '%g' \"$E\")\"","printf 'em\\t%s\\n' \"$($T stat -c '%a' \"$E\")\"","printf 'es\\t%s\\n' \"$($T stat -c '%s' \"$E\")\"","printf 'et\\t%s\\n' \"$($T stat -c '%Y' \"$E\")\"","printf 'er\\t%s\\n' \"$($T readlink -f \"$E\")\""];return "/system/bin/toybox timeout 5 /system/bin/sh -c "+q(l.join("\n"));}
-function num(m,k,c){if(!dig(m[k]))throw new Error(c);return Number(m[k]);}
-function owner(i,o){var st=now(),r=sh(procCmd(i),"JS#SBHReadonlyPingRetry2Process"),m=map(r.out),p,stable,um,gm;o.processIdentityElapsedMs=now()-st;o.runtimeProcessIdentityChecked=true;if(String(m.su||"")!=="0")throw new Error("ROOT_SHELL_REQUIRED");if(String(m.x||"0")!=="1")throw new Error("RUNTIME_PROCESS_NOT_FOUND");o.runtimeProcessExists=true;if(String(m.q||"0")!=="1")throw new Error("RUNTIME_PROCESS_STATUS_UNAVAILABLE");p={runtimePid:i.runtimePid,uidReal:num(m,"ur","RUNTIME_PROCESS_UID_INVALID"),uidEffective:num(m,"ue","RUNTIME_PROCESS_UID_INVALID"),uidFs:num(m,"uf","RUNTIME_PROCESS_UID_INVALID"),gidReal:num(m,"gr","RUNTIME_PROCESS_GID_INVALID"),gidEffective:num(m,"ge","RUNTIME_PROCESS_GID_INVALID"),gidFs:num(m,"gf","RUNTIME_PROCESS_GID_INVALID")};stable=num(m,"eu","ENDPOINT_IDENTITY_CHANGED")===i.uid&&num(m,"eg","ENDPOINT_IDENTITY_CHANGED")===i.gid&&String(m.em||"")===i.mode&&num(m,"es","ENDPOINT_IDENTITY_CHANGED")===i.size&&num(m,"et","ENDPOINT_IDENTITY_CHANGED")===i.mtimeEpochSeconds&&String(m.er||"")===epath();if(!stable)throw new Error("ENDPOINT_IDENTITY_CHANGED");o.endpointIdentityStable=true;um=i.uid===p.uidEffective||i.uid===p.uidFs;gm=i.gid===p.gidEffective||i.gid===p.gidFs;p.endpointUid=i.uid;p.endpointGid=i.gid;p.uidMatchBasis=i.uid===p.uidEffective?"effective":(i.uid===p.uidFs?"fs":"none");p.gidMatchBasis=i.gid===p.gidEffective?"effective":(i.gid===p.gidFs?"fs":"none");p.ownerMatched=um&&gm;o.runtimeProcessIdentity=p;if(!p.ownerMatched)throw new Error("ENDPOINT_RUNTIME_OWNER_MISMATCH");o.runtimeProcessIdentityValidated=true;o.endpointOwnerValidated=true;}
-function sec(e){var n=String(e.socketName||""),t=String(e.token||"");if(n.length<1||n.length>128||/[\r\n\u0000]/.test(n))throw new Error("ENDPOINT_SOCKET_NAME_INVALID");if(t.length<16||t.length>256||/[\r\n\u0000]/.test(t))throw new Error("ENDPOINT_TOKEN_INVALID");return{name:n,token:t};}
-function corr(){var r=new SR(),b=RA.newInstance(JB.TYPE,12),s="sbh-ping-"+now()+"-",i,v;r.nextBytes(b);for(i=0;i<b.length;i++){v=Number(b[i]);if(v<0)v+=256;s+=(v<16?"0":"")+v.toString(16);}return s;}
-function code(e){var t=SBH.util.errorText(e),a=["SHORTX_DIR_UNAVAILABLE","SHORTX_SHELL_RESULT_NULL","SHORTX_SHELL_CONTEXT_UNAVAILABLE","ROOT_SHELL_REQUIRED","ENDPOINT_FILE_NOT_FOUND","ENDPOINT_PROBE_ERROR","ENDPOINT_PROBE_DATA_MISSING","ENDPOINT_JSON_PARSE_FAILED","ENDPOINT_CANONICAL_PATH_MISMATCH","ENDPOINT_MODE_INVALID","ENDPOINT_METADATA_INVALID","ENDPOINT_FILE_SIZE_INVALID","ENDPOINT_SCHEMA_INVALID","ENDPOINT_RUNTIME_PID_INVALID","ENDPOINT_IDENTITY_CHANGED","ENDPOINT_RUNTIME_OWNER_MISMATCH","ENDPOINT_SOCKET_NAME_INVALID","ENDPOINT_TOKEN_INVALID","RUNTIME_PROCESS_NOT_FOUND","RUNTIME_PROCESS_STATUS_UNAVAILABLE","RUNTIME_PROCESS_UID_INVALID","RUNTIME_PROCESS_GID_INVALID","TOTAL_EXECUTION_BUDGET_EXCEEDED","UNEXPECTED_RESPONSE_STATUS","CORRELATION_ECHO_MISMATCH"],i;for(i=0;i<a.length;i++)if(t.indexOf(a[i])>=0)return a[i];return"READONLY_SOCKET_PING_RETRY2_FAILED";}
-function clean(e,n,t){var s=SBH.util.errorText(e);if(n)s=s.split(String(n)).join("<SOCKET_NAME_REDACTED>");if(t)s=s.split(String(t)).join("<TOKEN_REDACTED>");return s.length>512?s.substring(0,512):s;}
-function gate(s){var a=s?s.runtimeTransactionContract:null,b=s?s.runtimeSanitizedDryRunPreview:null,p=s?s.protocolAdapterPlan:null,k=p&&p.blockers?p.blockers:[];return!!a&&a.readOnlyPingContractReady===true&&a.pingSideEffectFree===true&&!!b&&String(b.state||"")==="sanitized_dry_run_preview_ready"&&b.planNormalized===true&&b.realSocketDryRunAllowed===false&&!!p&&String(p.state||"")==="sanitized_preview_ready"&&p.adapterImplementationAllowed===true&&p.adapterInvocationEnabled===false&&k.length===0;}
-function save(o){cached=o;try{SBH.files.writeJson(CACHE,o);}catch(e){SBH.log.warn("runtime.readonly.ping.retry2.cache",e);}}
-function old(){if(!cached||Number(cached.schemaVersion||0)!==SCHEMA||String(cached.authorizationId||"")!==AUTH||cached.authorizationConsumed!==true)return null;cached.reusedCachedResult=true;cached.automaticExecution=false;cached.source="persisted_one_shot_result";cached.checkedAt=now();return cached;}
-function run(status){var x=old(),o=base("readonly_socket_ping_retry2_blocked"),st=now(),p=null,e=null,i=null,k=null,n=null,t=null,c=null,s=null,a=null,w=null,r=null,rs=null,re=null,cs;if(x!==null)return x;o.attemptStartedAt=st;if(!gate(status)){o.state="readonly_socket_ping_retry2_waiting_for_gate";o.errorCode="STATIC_GATE_NOT_READY";o.error="Static read-only PING gate is not ready";o.attemptCompletedAt=now();o.totalElapsedMs=o.attemptCompletedAt-st;return o;}o.authorizationConsumed=true;try{p=load(o);e=parse(p);o.endpointValueRead=true;i=meta(p,e,o);owner(i,o);if(now()-st>BUDGET)throw new Error("TOTAL_EXECUTION_BUDGET_EXCEEDED");k=sec(e);n=k.name;t=k.token;k.name=null;k.token=null;e=null;o.socketNameValueRead=true;o.socketNameValueUsed=true;o.tokenValueRead=true;o.tokenValueUsed=true;o.endpointContractReady=true;c=corr();o.correlationGenerated=true;o.correlationLength=c.length;s=new LS();s.setSoTimeout(2000);a=new LA(n,LA.Namespace.ABSTRACT);o.socketConnectionAttempted=true;cs=now();s.connect(a,1500);o.connectElapsedMs=now()-cs;o.socketConnected=true;w=new BW(new OW(s.getOutputStream(),"UTF-8"));w.write(t);w.newLine();w.write(c);w.newLine();w.write("PING");w.newLine();w.flush();o.requestSent=true;o.requestCount=1;r=new BR(new IR(s.getInputStream(),"UTF-8"));rs=r.readLine();re=r.readLine();o.responseRead=true;o.responseLineCount=2;o.responseStatus=rs===null?null:String(rs);o.responseStatusMatched=String(rs||"")==="PONG";o.correlationMatched=String(re||"")===c;if(now()-st>BUDGET)throw new Error("TOTAL_EXECUTION_BUDGET_EXCEEDED");if(!o.responseStatusMatched)throw new Error("UNEXPECTED_RESPONSE_STATUS");if(!o.correlationMatched)throw new Error("CORRELATION_ECHO_MISMATCH");o.state="readonly_socket_ping_verified";o.adapterImplementationAllowed=true;o.readOnlyStatusAdapterReady=true;o.safeFailure=false;}catch(z){o.state="readonly_socket_ping_retry2_failed";o.errorCode=code(z);o.error=clean(z,n,t);}finally{close(r);close(w);o.socketClosed=s!==null?close(s):false;n=null;t=null;c=null;rs=null;re=null;a=null;e=null;i=null;k=null;p=null;o.sensitiveReferencesCleared=true;o.tokenValueExposed=false;o.socketNameValueExposed=false;o.correlationExposed=false;o.coreStartInvoked=false;o.coreStopInvoked=false;o.runtimeStopInvoked=false;o.unknownCommandInvoked=false;o.coreClientMainInvoked=false;o.markerFileCreated=false;o.runtimeFilesModified=false;o.adapterInvocationEnabled=false;o.writeOperationsLocked=true;o.destructiveOperations=false;o.attemptCompletedAt=now();o.totalElapsedMs=o.attemptCompletedAt-st;o.checkedAt=o.attemptCompletedAt;}save(o);return o;}
-function attach(s,o){var p;s=s||{};o=o||cached||base("not_started");s.runtimeReadonlySocketPing=o;s.runtimeReadonlySocketPingRetry2=o;p=s.protocolAdapterPlan;if(p){p.runtimeReadonlySocketPingState=String(o.state);p.readOnlyPingVerified=o.state==="readonly_socket_ping_verified";p.readOnlyStatusAdapterReady=o.readOnlyStatusAdapterReady===true;p.adapterInvocationEnabled=false;p.writeOperationsLocked=true;p.destructiveOperations=false;if(p.readOnlyPingVerified){p.state="readonly_ping_verified";p.adapterImplementationAllowed=true;p.blockers=[];}else if(o.authorizationConsumed===true){p.state="readonly_ping_verification_failed";p.adapterImplementationAllowed=false;p.blockers=["READONLY_SOCKET_PING_NOT_VERIFIED"];}s.protocolAdapterPlanState=String(p.state||"checking");}return s;}
-function install(){var rt=SBH.runtime,os=rt.status,orf=rt.refresh,orq=rt.request,ost=SBH.app.start;rt.status=function(){return attach(os(),cached);};rt.refresh=function(){return attach(orf(),cached);};rt.request=function(v){var cmd=v&&v.command?String(v.command):"",id=v&&v.requestId?String(v.requestId):"",s,z;if(cmd==="runtime.readonly_ping_status"){s=attach(os(),cached);return{ok:!!cached&&cached.state==="readonly_socket_ping_verified",requestId:id,code:"RUNTIME_READONLY_PING_STATUS",stateBefore:s.coreRunning?"running":"stopped",stateAfter:s.coreRunning?"running":"stopped",message:"Runtime 只读 Socket PING 重试 2 状态",data:cached||base("not_started")};}z=orq(v);try{if(z&&z.data)z.data.runtimeReadonlySocketPing=cached||base("not_started");}catch(e){}return z;};SBH.app.start=function(){var out=ost(),s=os(),o;try{o=run(s);}catch(e){o=base("readonly_socket_ping_retry2_status_unavailable");o.authorizationConsumed=true;o.errorCode=code(e);o.error=clean(e,"","");save(o);}s=attach(s,o);out.runtimeReadonlySocketPing=String(o.state);out.runtimeReadonlySocketPingDetails=o;out.runtimeReadonlySocketPingRetry2=String(o.state);out.runtimeReadonlySocketPingRetry2Details=o;out.runtimeProtocolAdapterPlan=String(s.protocolAdapterPlan?s.protocolAdapterPlan.state:"checking");out.runtimeProtocolAdapterPlanDetails=s.protocolAdapterPlan||null;out.protocolAdapterPlanState=out.runtimeProtocolAdapterPlan;if(out.runtimeWriteGateDetails){out.runtimeWriteGateDetails.protocolAdapterPlanState=out.protocolAdapterPlanState;out.runtimeWriteGateDetails.protocolAdapterPlan=s.protocolAdapterPlan||null;out.runtimeWriteGateDetails.runtimeReadonlySocketPing=o;out.runtimeWriteGateDetails.writeOperationsLocked=true;out.runtimeWriteGateDetails.destructiveOperations=false;}out.writeOperationsLocked=true;out.destructiveOperations=false;return out;};}
-if(!cached||Number(cached.schemaVersion||0)!==SCHEMA||String(cached.authorizationId||"")!==AUTH)cached=null;install();
+/* SingBoxHub stage27 retry3: shell-built-in PID identity parsing and one-shot read-only PING. Rhino ES5 only. */
+SBH.versions.runtimeReadonlySocketPing = 4;
+
+(function () {
+    var P = Packages;
+    var File = P.java.io.File;
+    var LocalSocket = P.android.net.LocalSocket;
+    var LocalSocketAddress = P.android.net.LocalSocketAddress;
+    var BufferedWriter = P.java.io.BufferedWriter;
+    var OutputStreamWriter = P.java.io.OutputStreamWriter;
+    var BufferedReader = P.java.io.BufferedReader;
+    var InputStreamReader = P.java.io.InputStreamReader;
+    var SecureRandom = P.java.security.SecureRandom;
+    var ReflectArray = P.java.lang.reflect.Array;
+    var JavaByte = P.java.lang.Byte;
+    var JavaString = P.java.lang.String;
+    var Base64 = P.android.util.Base64;
+    var ShellCommand =
+        P.tornaco.apps.shortx.core.proto.action.ShellCommand;
+
+    var AUTHORIZATION_ID =
+        "stage27-retry3-user-authorized-20260802";
+    var SCHEMA_VERSION = 4;
+    var MAX_ENDPOINT_BYTES = 65536;
+    var ENDPOINT_PROBE_MAX_AGE_MS = 120000;
+    var CONNECT_TIMEOUT_MS = 1500;
+    var READ_TIMEOUT_MS = 2000;
+    var TOTAL_BUDGET_MS = 15000;
+    var cacheFile = new File(
+        SBH.paths.cacheDir,
+        "runtime_readonly_socket_ping.json"
+    );
+    var cached = SBH.files.readJson(cacheFile, null);
+
+    function now() {
+        return Number(SBH.util.now());
+    }
+
+    function closeQuietly(value) {
+        try {
+            if (value !== null && value !== undefined) {
+                value.close();
+                return true;
+            }
+        } catch (ignored) {}
+        return false;
+    }
+
+    function shellQuote(value) {
+        return "'" + String(value).replace(/'/g, "'\\''") + "'";
+    }
+
+    function contextValue(data, key) {
+        var value = data.get(String(key));
+        return value === null || value === undefined ?
+            "" : String(value);
+    }
+
+    /*
+     * Follows the verified ShortX ShellCommand contract:
+     * ShellCommand.newBuilder(), setCommand(), setSingleShot(true),
+     * setId(), shortx.executeAction(), then contextData shellOut,
+     * shellErr and shellCode.
+     */
+    function executeShell(command, id) {
+        var action = ShellCommand.newBuilder()
+            .setCommand(String(command))
+            .setSingleShot(true)
+            .setId(String(id))
+            .build();
+        var result = shortx.executeAction(action);
+        var data;
+
+        if (result === null || result === undefined) {
+            throw new Error("SHORTX_SHELL_RESULT_NULL");
+        }
+        data = result.contextData;
+        if (data === null || data === undefined) {
+            throw new Error("SHORTX_SHELL_CONTEXT_UNAVAILABLE");
+        }
+        return {
+            out: contextValue(data, "shellOut"),
+            err: contextValue(data, "shellErr"),
+            code: Number(data.get("shellCode"))
+        };
+    }
+
+    function parseMap(text) {
+        var output = {};
+        var lines = String(text || "").split(/\r?\n/);
+        var i;
+        var fields;
+        for (i = 0; i < lines.length; i += 1) {
+            fields = lines[i].split("\t");
+            if (fields.length >= 2) {
+                output[String(fields[0])] =
+                    String(fields.slice(1).join("\t"));
+            }
+        }
+        return output;
+    }
+
+    function blank(state) {
+        return {
+            schemaVersion: SCHEMA_VERSION,
+            state: state || "not_started",
+            authorizationId: AUTHORIZATION_ID,
+            authorizationConsumed: false,
+            automaticExecution: true,
+            automaticRetryAllowed: false,
+            reusedCachedResult: false,
+            source: "stage27_retry3",
+            commandAllowlist: ["PING"],
+            command: "PING",
+
+            endpointProbeAvailable: false,
+            endpointProbeRefreshed: false,
+            endpointProbeSource: null,
+            endpointProbeAgeMs: null,
+            endpointRefreshElapsedMs: null,
+            endpointProbeShellExitCode: null,
+            endpointProbeShellErrorPresent: false,
+
+            endpointFileExists: false,
+            endpointFileCanonical: false,
+            endpointModeValidated: false,
+            endpointSchemaValidated: false,
+            endpointOwnerValidated: false,
+            endpointIdentityStable: false,
+            endpointContractReady: false,
+            endpointIdentity: null,
+
+            runtimeProcessIdentityChecked: false,
+            runtimeProcessExists: false,
+            runtimeProcessIdentityValidated: false,
+            runtimeProcessIdentity: null,
+            runtimeCommandIdentityChecked: false,
+            runtimeCommandIdentityValidated: false,
+            runtimeCommandIdentityBasis: null,
+            processIdentityParseMethod:
+                "android_sh_builtin_read_case",
+            processIdentityElapsedMs: null,
+            processIdentityShellExitCode: null,
+            processIdentityShellErrorPresent: false,
+
+            endpointValueRead: false,
+            tokenValueRead: false,
+            tokenValueUsed: false,
+            tokenValueExposed: false,
+            socketNameValueRead: false,
+            socketNameValueUsed: false,
+            socketNameValueExposed: false,
+            correlationGenerated: false,
+            correlationLength: 0,
+            correlationExposed: false,
+
+            requestConstructedInMemory: false,
+            requestSerialized: false,
+            requestSent: false,
+            requestCount: 0,
+            responseRead: false,
+            responseLineCount: 0,
+            responseStatus: null,
+            responseStatusMatched: false,
+            correlationMatched: false,
+
+            socketConnectionAttempted: false,
+            socketConnected: false,
+            socketClosed: false,
+            connectTimeoutMs: CONNECT_TIMEOUT_MS,
+            readTimeoutMs: READ_TIMEOUT_MS,
+            totalBudgetMs: TOTAL_BUDGET_MS,
+            attemptStartedAt: 0,
+            attemptCompletedAt: 0,
+            connectElapsedMs: null,
+            totalElapsedMs: null,
+
+            sensitiveReferencesCleared: false,
+            adapterImplementationAllowed: false,
+            adapterInvocationEnabled: false,
+            readOnlyStatusAdapterReady: false,
+            coreStartInvoked: false,
+            coreStopInvoked: false,
+            runtimeStopInvoked: false,
+            unknownCommandInvoked: false,
+            coreClientMainInvoked: false,
+            markerFileCreated: false,
+            runtimeFilesModified: false,
+            writeOperationsLocked: true,
+            destructiveOperations: false,
+            safeFailure: true,
+            errorCode: null,
+            error: null,
+            checkedAt: now()
+        };
+    }
+
+    function endpointFile() {
+        if (typeof shortx === "undefined" || shortx === null ||
+                typeof shortx.getShortXDir !== "function") {
+            throw new Error("SHORTX_DIR_UNAVAILABLE");
+        }
+        return new File(
+            new File(String(shortx.getShortXDir()), "SingBoxHub"),
+            "runtime/control/control_endpoint.json"
+        );
+    }
+
+    function expectedEndpointPath() {
+        return String(endpointFile().getCanonicalPath());
+    }
+
+    function probeAgeMs(probe) {
+        var capturedAt = Number(
+            probe && probe.capturedAt ? probe.capturedAt : 0
+        );
+        var shellNow = Number(probe && probe.now ? probe.now : 0);
+        if (capturedAt > 0) {
+            return Math.max(0, now() - capturedAt);
+        }
+        if (shellNow > 0) {
+            return Math.max(
+                0,
+                (Math.floor(now() / 1000) - shellNow) * 1000
+            );
+        }
+        return null;
+    }
+
+    function currentEndpointProbe() {
+        try {
+            if (SBH.runtime &&
+                    typeof SBH.runtime.endpointProbe === "function") {
+                return SBH.runtime.endpointProbe();
+            }
+        } catch (ignored) {}
+        return null;
+    }
+
+    function probeUsable(probe) {
+        var age;
+        if (!probe || probe.exists !== true ||
+                probe.error || !probe.data) {
+            return false;
+        }
+        age = probeAgeMs(probe);
+        return age === null ||
+            age <= ENDPOINT_PROBE_MAX_AGE_MS;
+    }
+
+    function buildEndpointProbeCommand() {
+        var lines = [
+            "T=/system/bin/toybox",
+            "printf 'su\\t%s\\n' \"$($T id -u)\"",
+            "E=" + shellQuote(expectedEndpointPath()),
+            "if [ -f \"$E\" ]; then",
+            "  printf 'x\\t1\\n'",
+            "  printf 'u\\t%s\\n' \"$($T stat -c '%u' \"$E\")\"",
+            "  printf 'g\\t%s\\n' \"$($T stat -c '%g' \"$E\")\"",
+            "  printf 'm\\t%s\\n' \"$($T stat -c '%a' \"$E\")\"",
+            "  printf 's\\t%s\\n' \"$($T stat -c '%s' \"$E\")\"",
+            "  printf 't\\t%s\\n' \"$($T stat -c '%Y' \"$E\")\"",
+            "  printf 'r\\t%s\\n' \"$($T readlink -f \"$E\")\"",
+            "  SIZE_VALUE=\"$($T stat -c '%s' \"$E\")\"",
+            "  if [ -n \"$SIZE_VALUE\" ] && " +
+                "[ \"$SIZE_VALUE\" -gt 0 ] && " +
+                "[ \"$SIZE_VALUE\" -le " +
+                MAX_ENDPOINT_BYTES + " ]; then",
+            "    DATA_VALUE=\"$($T base64 \"$E\" 2>/dev/null | " +
+                "$T tr -d '\\r\\n')\"",
+            "    printf 'd\\t%s\\n' \"$DATA_VALUE\"",
+            "  fi",
+            "else",
+            "  printf 'x\\t0\\n'",
+            "fi",
+            "printf 'n\\t%s\\n' \"$($T date +%s)\""
+        ];
+        return "/system/bin/toybox timeout 5 /system/bin/sh -c " +
+            shellQuote(lines.join("\n"));
+    }
+
+    function refreshEndpointProbe(output) {
+        var startedAt = now();
+        var shell = executeShell(
+            buildEndpointProbeCommand(),
+            "JS#SBHReadonlyPingRetry3Endpoint"
+        );
+        var values = parseMap(shell.out);
+        var probe;
+
+        output.endpointProbeShellExitCode = shell.code;
+        output.endpointProbeShellErrorPresent =
+            String(shell.err || "").length > 0;
+
+        if (String(values.su || "") !== "0") {
+            throw new Error("ROOT_SHELL_REQUIRED");
+        }
+
+        probe = {
+            exists: String(values.x || "0") === "1",
+            uid: String(values.u || ""),
+            gid: String(values.g || ""),
+            mode: String(values.m || ""),
+            size: String(values.s || ""),
+            mtime: String(values.t || ""),
+            real: String(values.r || ""),
+            data: String(values.d || ""),
+            now: String(values.n || ""),
+            capturedAt: now(),
+            error: shell.code === 0 ?
+                null : "ENDPOINT_PROBE_SHELL_FAILED"
+        };
+
+        output.endpointProbeAvailable = true;
+        output.endpointProbeRefreshed = true;
+        output.endpointProbeSource =
+            "direct_endpoint_only_refresh";
+        output.endpointProbeAgeMs = probeAgeMs(probe);
+        output.endpointRefreshElapsedMs =
+            now() - startedAt;
+        return probe;
+    }
+
+    function loadEndpointProbe(output) {
+        var probe = currentEndpointProbe();
+        if (probeUsable(probe)) {
+            output.endpointProbeAvailable = true;
+            output.endpointProbeSource =
+                "runtime_client_cache";
+            output.endpointProbeAgeMs =
+                probeAgeMs(probe);
+            return probe;
+        }
+        return refreshEndpointProbe(output);
+    }
+
+    function parseEndpoint(probe) {
+        var decoded = null;
+        var text = null;
+        if (probe.exists !== true) {
+            throw new Error("ENDPOINT_FILE_NOT_FOUND");
+        }
+        if (probe.error) {
+            throw new Error("ENDPOINT_PROBE_ERROR");
+        }
+        if (!probe.data) {
+            throw new Error("ENDPOINT_PROBE_DATA_MISSING");
+        }
+        try {
+            decoded = Base64.decode(
+                String(probe.data),
+                Base64.DEFAULT
+            );
+            text = String(new JavaString(decoded, "UTF-8"));
+            return JSON.parse(text);
+        } catch (error) {
+            if (String(error).indexOf("ENDPOINT_") >= 0) {
+                throw error;
+            }
+            throw new Error("ENDPOINT_JSON_PARSE_FAILED");
+        } finally {
+            decoded = null;
+            text = null;
+        }
+    }
+
+    function digits(value) {
+        return /^\d+$/.test(String(value || ""));
+    }
+
+    function validateEndpointMetadata(probe, endpoint, output) {
+        var size = String(probe.size || "");
+        var uid = String(probe.uid || "");
+        var gid = String(probe.gid || "");
+        var runtimePid;
+
+        if (String(probe.real || "") !==
+                expectedEndpointPath()) {
+            throw new Error(
+                "ENDPOINT_CANONICAL_PATH_MISMATCH"
+            );
+        }
+        output.endpointFileExists = true;
+        output.endpointFileCanonical = true;
+
+        if (String(probe.mode || "") !== "600") {
+            throw new Error("ENDPOINT_MODE_INVALID");
+        }
+        output.endpointModeValidated = true;
+
+        if (!digits(size) || !digits(uid) ||
+                !digits(gid) || !digits(probe.mtime)) {
+            throw new Error("ENDPOINT_METADATA_INVALID");
+        }
+        if (Number(size) <= 0 ||
+                Number(size) > MAX_ENDPOINT_BYTES) {
+            throw new Error("ENDPOINT_FILE_SIZE_INVALID");
+        }
+        if (!endpoint || typeof endpoint !== "object" ||
+                Number(endpoint.schemaVersion || 0) !== 1) {
+            throw new Error("ENDPOINT_SCHEMA_INVALID");
+        }
+        output.endpointSchemaValidated = true;
+
+        if (!digits(endpoint.runtimePid)) {
+            throw new Error("ENDPOINT_RUNTIME_PID_INVALID");
+        }
+        runtimePid = Number(endpoint.runtimePid);
+        if (runtimePid <= 1 ||
+                runtimePid > 2147483647) {
+            throw new Error("ENDPOINT_RUNTIME_PID_INVALID");
+        }
+
+        output.endpointIdentity = {
+            schemaVersion: 1,
+            runtimePid: runtimePid,
+            createdAt: Number(endpoint.createdAt || 0),
+            uid: Number(uid),
+            gid: Number(gid),
+            mode: String(probe.mode),
+            size: Number(size),
+            mtimeEpochSeconds: Number(probe.mtime)
+        };
+        return output.endpointIdentity;
+    }
+
+    function buildProcessIdentityCommand(identity, endpoint) {
+        var serverClass = String(
+            endpoint.serverClass || ""
+        );
+        var runtimeJar = String(
+            endpoint.runtimeJar || ""
+        );
+        var lines = [
+            "T=/system/bin/toybox",
+            "printf 'su\\t%s\\n' \"$($T id -u)\"",
+            "P=" + shellQuote(String(identity.runtimePid)),
+            "E=" + shellQuote(expectedEndpointPath()),
+            "STATUS=\"/proc/$P/status\"",
+            "CMDLINE=\"/proc/$P/cmdline\"",
+            "if [ -d \"/proc/$P\" ]; then",
+            "  printf 'x\\t1\\n'",
+            "else",
+            "  printf 'x\\t0\\n'",
+            "  exit 0",
+            "fi",
+            "if [ -r \"$STATUS\" ]; then",
+            "  printf 'q\\t1\\n'",
+            "else",
+            "  printf 'q\\t0\\n'",
+            "  exit 0",
+            "fi",
+            "UR=; UE=; US=; UF=; GR=; GE=; GS=; GF=",
+            "while read KEY A B C D REST; do",
+            "  case \"$KEY\" in",
+            "    Uid:)",
+            "      UR=\"$A\"; UE=\"$B\"; US=\"$C\"; UF=\"$D\"",
+            "      ;;",
+            "    Gid:)",
+            "      GR=\"$A\"; GE=\"$B\"; GS=\"$C\"; GF=\"$D\"",
+            "      ;;",
+            "  esac",
+            "done < \"$STATUS\"",
+            "printf 'ur\\t%s\\n' \"$UR\"",
+            "printf 'ue\\t%s\\n' \"$UE\"",
+            "printf 'us\\t%s\\n' \"$US\"",
+            "printf 'uf\\t%s\\n' \"$UF\"",
+            "printf 'gr\\t%s\\n' \"$GR\"",
+            "printf 'ge\\t%s\\n' \"$GE\"",
+            "printf 'gs\\t%s\\n' \"$GS\"",
+            "printf 'gf\\t%s\\n' \"$GF\"",
+            "CMD_MATCH=0",
+            "CMD_BASIS=none",
+            "if [ -r \"$CMDLINE\" ]; then",
+            "  CMD_VALUE=\"$($T tr '\\000' ' ' < " +
+                "\"$CMDLINE\" 2>/dev/null)\"",
+            "  case \"$CMD_VALUE\" in",
+            "    *" + shellQuote(serverClass) + "*)",
+            "      CMD_MATCH=1; CMD_BASIS=serverClass",
+            "      ;;",
+            "    *" + shellQuote(runtimeJar) + "*)",
+            "      CMD_MATCH=1; CMD_BASIS=runtimeJar",
+            "      ;;",
+            "  esac",
+            "fi",
+            "printf 'cm\\t%s\\n' \"$CMD_MATCH\"",
+            "printf 'cb\\t%s\\n' \"$CMD_BASIS\"",
+            "printf 'eu\\t%s\\n' \"$($T stat -c '%u' \"$E\")\"",
+            "printf 'eg\\t%s\\n' \"$($T stat -c '%g' \"$E\")\"",
+            "printf 'em\\t%s\\n' \"$($T stat -c '%a' \"$E\")\"",
+            "printf 'es\\t%s\\n' \"$($T stat -c '%s' \"$E\")\"",
+            "printf 'et\\t%s\\n' \"$($T stat -c '%Y' \"$E\")\"",
+            "printf 'er\\t%s\\n' \"$($T readlink -f \"$E\")\""
+        ];
+
+        return "/system/bin/toybox timeout 5 /system/bin/sh -c " +
+            shellQuote(lines.join("\n"));
+    }
+
+    function requiredNumber(values, key, code) {
+        if (!digits(values[key])) {
+            throw new Error(code);
+        }
+        return Number(values[key]);
+    }
+
+    function validateProcessIdentity(
+            identity, endpoint, output) {
+        var startedAt = now();
+        var shell = executeShell(
+            buildProcessIdentityCommand(identity, endpoint),
+            "JS#SBHReadonlyPingRetry3Process"
+        );
+        var values = parseMap(shell.out);
+        var processIdentity;
+        var stable;
+        var uidMatched;
+        var gidMatched;
+
+        output.processIdentityElapsedMs =
+            now() - startedAt;
+        output.processIdentityShellExitCode =
+            shell.code;
+        output.processIdentityShellErrorPresent =
+            String(shell.err || "").length > 0;
+        output.runtimeProcessIdentityChecked = true;
+
+        if (String(values.su || "") !== "0") {
+            throw new Error("ROOT_SHELL_REQUIRED");
+        }
+        if (String(values.x || "0") !== "1") {
+            throw new Error("RUNTIME_PROCESS_NOT_FOUND");
+        }
+        output.runtimeProcessExists = true;
+
+        if (String(values.q || "0") !== "1") {
+            throw new Error(
+                "RUNTIME_PROCESS_STATUS_UNAVAILABLE"
+            );
+        }
+
+        processIdentity = {
+            runtimePid: identity.runtimePid,
+            uidReal: requiredNumber(
+                values,
+                "ur",
+                "RUNTIME_PROCESS_UID_INVALID"
+            ),
+            uidEffective: requiredNumber(
+                values,
+                "ue",
+                "RUNTIME_PROCESS_UID_INVALID"
+            ),
+            uidSaved: requiredNumber(
+                values,
+                "us",
+                "RUNTIME_PROCESS_UID_INVALID"
+            ),
+            uidFs: requiredNumber(
+                values,
+                "uf",
+                "RUNTIME_PROCESS_UID_INVALID"
+            ),
+            gidReal: requiredNumber(
+                values,
+                "gr",
+                "RUNTIME_PROCESS_GID_INVALID"
+            ),
+            gidEffective: requiredNumber(
+                values,
+                "ge",
+                "RUNTIME_PROCESS_GID_INVALID"
+            ),
+            gidSaved: requiredNumber(
+                values,
+                "gs",
+                "RUNTIME_PROCESS_GID_INVALID"
+            ),
+            gidFs: requiredNumber(
+                values,
+                "gf",
+                "RUNTIME_PROCESS_GID_INVALID"
+            )
+        };
+
+        output.runtimeCommandIdentityChecked = true;
+        output.runtimeCommandIdentityValidated =
+            String(values.cm || "0") === "1";
+        output.runtimeCommandIdentityBasis =
+            output.runtimeCommandIdentityValidated ?
+                String(values.cb || "unknown") : "none";
+
+        if (!output.runtimeCommandIdentityValidated) {
+            throw new Error(
+                "RUNTIME_PROCESS_COMMAND_MISMATCH"
+            );
+        }
+
+        stable =
+            requiredNumber(
+                values,
+                "eu",
+                "ENDPOINT_IDENTITY_CHANGED"
+            ) === identity.uid &&
+            requiredNumber(
+                values,
+                "eg",
+                "ENDPOINT_IDENTITY_CHANGED"
+            ) === identity.gid &&
+            String(values.em || "") === identity.mode &&
+            requiredNumber(
+                values,
+                "es",
+                "ENDPOINT_IDENTITY_CHANGED"
+            ) === identity.size &&
+            requiredNumber(
+                values,
+                "et",
+                "ENDPOINT_IDENTITY_CHANGED"
+            ) === identity.mtimeEpochSeconds &&
+            String(values.er || "") ===
+                expectedEndpointPath();
+
+        if (!stable) {
+            throw new Error("ENDPOINT_IDENTITY_CHANGED");
+        }
+        output.endpointIdentityStable = true;
+
+        uidMatched =
+            identity.uid === processIdentity.uidEffective ||
+            identity.uid === processIdentity.uidFs;
+        gidMatched =
+            identity.gid === processIdentity.gidEffective ||
+            identity.gid === processIdentity.gidFs;
+
+        processIdentity.endpointUid = identity.uid;
+        processIdentity.endpointGid = identity.gid;
+        processIdentity.uidMatchBasis =
+            identity.uid === processIdentity.uidEffective ?
+                "effective" :
+                (identity.uid === processIdentity.uidFs ?
+                    "fs" : "none");
+        processIdentity.gidMatchBasis =
+            identity.gid === processIdentity.gidEffective ?
+                "effective" :
+                (identity.gid === processIdentity.gidFs ?
+                    "fs" : "none");
+        processIdentity.ownerMatched =
+            uidMatched && gidMatched;
+        processIdentity.commandIdentityMatched =
+            output.runtimeCommandIdentityValidated;
+        processIdentity.commandIdentityBasis =
+            output.runtimeCommandIdentityBasis;
+
+        output.runtimeProcessIdentity =
+            processIdentity;
+
+        if (!processIdentity.ownerMatched) {
+            throw new Error(
+                "ENDPOINT_RUNTIME_OWNER_MISMATCH"
+            );
+        }
+
+        output.runtimeProcessIdentityValidated = true;
+        output.endpointOwnerValidated = true;
+    }
+
+    function extractSecrets(endpoint) {
+        var socketName = String(endpoint.socketName || "");
+        var token = String(endpoint.token || "");
+
+        if (socketName.length < 1 ||
+                socketName.length > 128 ||
+                /[\r\n\u0000]/.test(socketName)) {
+            throw new Error(
+                "ENDPOINT_SOCKET_NAME_INVALID"
+            );
+        }
+        if (token.length < 16 ||
+                token.length > 256 ||
+                /[\r\n\u0000]/.test(token)) {
+            throw new Error("ENDPOINT_TOKEN_INVALID");
+        }
+        return {
+            socketName: socketName,
+            token: token
+        };
+    }
+
+    function randomCorrelation() {
+        var random = new SecureRandom();
+        var bytes = ReflectArray.newInstance(
+            JavaByte.TYPE,
+            12
+        );
+        var value = "sbh-ping-" + now() + "-";
+        var i;
+        var currentValue;
+
+        random.nextBytes(bytes);
+        for (i = 0; i < bytes.length; i += 1) {
+            currentValue = Number(bytes[i]);
+            if (currentValue < 0) {
+                currentValue += 256;
+            }
+            if (currentValue < 16) {
+                value += "0";
+            }
+            value += currentValue.toString(16);
+        }
+        return value;
+    }
+
+    function errorCodeOf(error) {
+        var text = SBH.util.errorText(error);
+        var known = [
+            "SHORTX_DIR_UNAVAILABLE",
+            "SHORTX_SHELL_RESULT_NULL",
+            "SHORTX_SHELL_CONTEXT_UNAVAILABLE",
+            "ROOT_SHELL_REQUIRED",
+            "ENDPOINT_FILE_NOT_FOUND",
+            "ENDPOINT_PROBE_ERROR",
+            "ENDPOINT_PROBE_DATA_MISSING",
+            "ENDPOINT_JSON_PARSE_FAILED",
+            "ENDPOINT_CANONICAL_PATH_MISMATCH",
+            "ENDPOINT_MODE_INVALID",
+            "ENDPOINT_METADATA_INVALID",
+            "ENDPOINT_FILE_SIZE_INVALID",
+            "ENDPOINT_SCHEMA_INVALID",
+            "ENDPOINT_RUNTIME_PID_INVALID",
+            "ENDPOINT_IDENTITY_CHANGED",
+            "ENDPOINT_RUNTIME_OWNER_MISMATCH",
+            "ENDPOINT_SOCKET_NAME_INVALID",
+            "ENDPOINT_TOKEN_INVALID",
+            "RUNTIME_PROCESS_NOT_FOUND",
+            "RUNTIME_PROCESS_STATUS_UNAVAILABLE",
+            "RUNTIME_PROCESS_UID_INVALID",
+            "RUNTIME_PROCESS_GID_INVALID",
+            "RUNTIME_PROCESS_COMMAND_MISMATCH",
+            "TOTAL_EXECUTION_BUDGET_EXCEEDED",
+            "UNEXPECTED_RESPONSE_STATUS",
+            "CORRELATION_ECHO_MISMATCH"
+        ];
+        var i;
+
+        for (i = 0; i < known.length; i += 1) {
+            if (text.indexOf(known[i]) >= 0) {
+                return known[i];
+            }
+        }
+        return "READONLY_SOCKET_PING_RETRY3_FAILED";
+    }
+
+    function sanitizeError(error, socketName, token) {
+        var text = SBH.util.errorText(error);
+        if (socketName) {
+            text = text.split(String(socketName)).join(
+                "<SOCKET_NAME_REDACTED>"
+            );
+        }
+        if (token) {
+            text = text.split(String(token)).join(
+                "<TOKEN_REDACTED>"
+            );
+        }
+        if (text.length > 512) {
+            text = text.substring(0, 512);
+        }
+        return text;
+    }
+
+    function staticGateReady(status) {
+        var transaction =
+            status ? status.runtimeTransactionContract : null;
+        var preview =
+            status ? status.runtimeSanitizedDryRunPreview : null;
+        var plan =
+            status ? status.protocolAdapterPlan : null;
+        var blockers =
+            plan && plan.blockers ? plan.blockers : [];
+
+        return !!transaction &&
+            transaction.readOnlyPingContractReady === true &&
+            transaction.pingSideEffectFree === true &&
+            !!preview &&
+            String(preview.state || "") ===
+                "sanitized_dry_run_preview_ready" &&
+            preview.planNormalized === true &&
+            preview.realSocketDryRunAllowed === false &&
+            !!plan &&
+            String(plan.state || "") ===
+                "sanitized_preview_ready" &&
+            plan.adapterImplementationAllowed === true &&
+            plan.adapterInvocationEnabled === false &&
+            blockers.length === 0;
+    }
+
+    function save(result) {
+        cached = result;
+        try {
+            SBH.files.writeJson(cacheFile, result);
+        } catch (error) {
+            SBH.log.warn(
+                "runtime.readonly.ping.retry3.cache",
+                SBH.util.errorText(error)
+            );
+        }
+    }
+
+    function cachedAuthorizedResult() {
+        if (!cached ||
+                Number(cached.schemaVersion || 0) !==
+                    SCHEMA_VERSION ||
+                String(cached.authorizationId || "") !==
+                    AUTHORIZATION_ID ||
+                cached.authorizationConsumed !== true) {
+            return null;
+        }
+        cached.reusedCachedResult = true;
+        cached.automaticExecution = false;
+        cached.source = "persisted_one_shot_result";
+        cached.checkedAt = now();
+        return cached;
+    }
+
+    function executeOneShot(status) {
+        var existing = cachedAuthorizedResult();
+        var output = blank(
+            "readonly_socket_ping_retry3_blocked"
+        );
+        var startedAt = now();
+        var probe = null;
+        var endpoint = null;
+        var identity = null;
+        var secrets = null;
+        var socketName = null;
+        var token = null;
+        var correlation = null;
+        var socket = null;
+        var address = null;
+        var writer = null;
+        var reader = null;
+        var responseStatus = null;
+        var responseCorrelation = null;
+        var connectStartedAt = 0;
+
+        if (existing !== null) {
+            return existing;
+        }
+
+        output.attemptStartedAt = startedAt;
+
+        if (!staticGateReady(status)) {
+            output.state =
+                "readonly_socket_ping_retry3_waiting_for_gate";
+            output.errorCode = "STATIC_GATE_NOT_READY";
+            output.error =
+                "Static read-only PING gate is not ready";
+            output.attemptCompletedAt = now();
+            output.totalElapsedMs =
+                output.attemptCompletedAt - startedAt;
+            return output;
+        }
+
+        output.authorizationConsumed = true;
+
+        try {
+            probe = loadEndpointProbe(output);
+            endpoint = parseEndpoint(probe);
+            output.endpointValueRead = true;
+
+            identity = validateEndpointMetadata(
+                probe,
+                endpoint,
+                output
+            );
+            validateProcessIdentity(
+                identity,
+                endpoint,
+                output
+            );
+
+            if (now() - startedAt >
+                    TOTAL_BUDGET_MS) {
+                throw new Error(
+                    "TOTAL_EXECUTION_BUDGET_EXCEEDED"
+                );
+            }
+
+            secrets = extractSecrets(endpoint);
+            socketName = secrets.socketName;
+            token = secrets.token;
+            secrets.socketName = null;
+            secrets.token = null;
+            endpoint = null;
+            probe = null;
+
+            output.socketNameValueRead = true;
+            output.socketNameValueUsed = true;
+            output.tokenValueRead = true;
+            output.tokenValueUsed = true;
+            output.endpointContractReady = true;
+
+            correlation = randomCorrelation();
+            output.correlationGenerated = true;
+            output.correlationLength =
+                correlation.length;
+            output.requestConstructedInMemory = true;
+
+            socket = new LocalSocket();
+            socket.setSoTimeout(READ_TIMEOUT_MS);
+            address = new LocalSocketAddress(
+                socketName,
+                LocalSocketAddress.Namespace.ABSTRACT
+            );
+
+            output.socketConnectionAttempted = true;
+            connectStartedAt = now();
+            socket.connect(address, CONNECT_TIMEOUT_MS);
+            output.connectElapsedMs =
+                now() - connectStartedAt;
+            output.socketConnected = true;
+
+            writer = new BufferedWriter(
+                new OutputStreamWriter(
+                    socket.getOutputStream(),
+                    "UTF-8"
+                )
+            );
+            writer.write(token);
+            writer.newLine();
+            writer.write(correlation);
+            writer.newLine();
+            writer.write("PING");
+            writer.newLine();
+            output.requestSerialized = true;
+            writer.flush();
+            output.requestSent = true;
+            output.requestCount = 1;
+
+            reader = new BufferedReader(
+                new InputStreamReader(
+                    socket.getInputStream(),
+                    "UTF-8"
+                )
+            );
+            responseStatus = reader.readLine();
+            responseCorrelation = reader.readLine();
+            output.responseRead = true;
+            output.responseLineCount = 2;
+            output.responseStatus =
+                responseStatus === null ?
+                    null : String(responseStatus);
+            output.responseStatusMatched =
+                String(responseStatus || "") === "PONG";
+            output.correlationMatched =
+                String(responseCorrelation || "") ===
+                    correlation;
+
+            if (now() - startedAt >
+                    TOTAL_BUDGET_MS) {
+                throw new Error(
+                    "TOTAL_EXECUTION_BUDGET_EXCEEDED"
+                );
+            }
+            if (!output.responseStatusMatched) {
+                throw new Error(
+                    "UNEXPECTED_RESPONSE_STATUS"
+                );
+            }
+            if (!output.correlationMatched) {
+                throw new Error(
+                    "CORRELATION_ECHO_MISMATCH"
+                );
+            }
+
+            output.state =
+                "readonly_socket_ping_verified";
+            output.adapterImplementationAllowed = true;
+            output.readOnlyStatusAdapterReady = true;
+            output.safeFailure = false;
+            output.errorCode = null;
+            output.error = null;
+        } catch (error) {
+            output.state =
+                "readonly_socket_ping_retry3_failed";
+            output.errorCode = errorCodeOf(error);
+            output.error = sanitizeError(
+                error,
+                socketName,
+                token
+            );
+            output.adapterImplementationAllowed = false;
+            output.readOnlyStatusAdapterReady = false;
+            output.safeFailure = true;
+        } finally {
+            closeQuietly(reader);
+            closeQuietly(writer);
+            output.socketClosed =
+                socket !== null ?
+                    closeQuietly(socket) : false;
+
+            socketName = null;
+            token = null;
+            correlation = null;
+            responseCorrelation = null;
+            responseStatus = null;
+            address = null;
+            endpoint = null;
+            identity = null;
+            secrets = null;
+            probe = null;
+
+            output.sensitiveReferencesCleared = true;
+            output.tokenValueExposed = false;
+            output.socketNameValueExposed = false;
+            output.correlationExposed = false;
+            output.coreStartInvoked = false;
+            output.coreStopInvoked = false;
+            output.runtimeStopInvoked = false;
+            output.unknownCommandInvoked = false;
+            output.coreClientMainInvoked = false;
+            output.markerFileCreated = false;
+            output.runtimeFilesModified = false;
+            output.adapterInvocationEnabled = false;
+            output.writeOperationsLocked = true;
+            output.destructiveOperations = false;
+            output.attemptCompletedAt = now();
+            output.totalElapsedMs =
+                output.attemptCompletedAt - startedAt;
+            output.checkedAt =
+                output.attemptCompletedAt;
+        }
+
+        save(output);
+        return output;
+    }
+
+    function attach(status, result) {
+        var plan;
+        status = status || {};
+        result = result || cached || blank("not_started");
+        status.runtimeReadonlySocketPing = result;
+        status.runtimeReadonlySocketPingRetry3 = result;
+        plan = status.protocolAdapterPlan;
+
+        if (plan) {
+            plan.runtimeReadonlySocketPingState =
+                String(result.state);
+            plan.readOnlyPingVerified =
+                result.state ===
+                    "readonly_socket_ping_verified";
+            plan.readOnlyStatusAdapterReady =
+                result.readOnlyStatusAdapterReady === true;
+            plan.adapterInvocationEnabled = false;
+            plan.writeOperationsLocked = true;
+            plan.destructiveOperations = false;
+
+            if (plan.readOnlyPingVerified) {
+                plan.state = "readonly_ping_verified";
+                plan.adapterImplementationAllowed = true;
+                plan.blockers = [];
+                plan.permittedOperations = [
+                    "read_verified_ping_result",
+                    "build_readonly_status_adapter"
+                ];
+            } else if (
+                    result.authorizationConsumed === true) {
+                plan.state =
+                    "readonly_ping_verification_failed";
+                plan.adapterImplementationAllowed = false;
+                plan.blockers = [
+                    "READONLY_SOCKET_PING_NOT_VERIFIED"
+                ];
+                plan.permittedOperations = [
+                    "read_ping_failure_result"
+                ];
+            }
+            status.protocolAdapterPlanState =
+                String(plan.state || "checking");
+        }
+        return status;
+    }
+
+    function install() {
+        var runtime = SBH.runtime;
+        var oldStatus = runtime.status;
+        var oldRefresh = runtime.refresh;
+        var oldRequest = runtime.request;
+        var oldStart = SBH.app.start;
+
+        runtime.status = function () {
+            return attach(oldStatus(), cached);
+        };
+
+        runtime.refresh = function () {
+            return attach(oldRefresh(), cached);
+        };
+
+        runtime.request = function (request) {
+            var command =
+                request && request.command ?
+                    String(request.command) : "";
+            var requestId =
+                request && request.requestId ?
+                    String(request.requestId) : "";
+            var status;
+            var response;
+
+            if (command ===
+                    "runtime.readonly_ping_status") {
+                status = attach(oldStatus(), cached);
+                return {
+                    ok: !!cached &&
+                        cached.state ===
+                            "readonly_socket_ping_verified",
+                    requestId: requestId,
+                    code: "RUNTIME_READONLY_PING_STATUS",
+                    stateBefore:
+                        status.coreRunning ?
+                            "running" : "stopped",
+                    stateAfter:
+                        status.coreRunning ?
+                            "running" : "stopped",
+                    message:
+                        "Runtime 只读 Socket PING 重试 3 状态",
+                    data:
+                        cached || blank("not_started")
+                };
+            }
+
+            response = oldRequest(request);
+            try {
+                if (response && response.data) {
+                    response.data.runtimeReadonlySocketPing =
+                        cached || blank("not_started");
+                }
+            } catch (ignored) {}
+            return response;
+        };
+
+        SBH.app.start = function () {
+            var output = oldStart();
+            var status = oldStatus();
+            var result;
+
+            try {
+                result = executeOneShot(status);
+            } catch (error) {
+                result = blank(
+                    "readonly_socket_ping_retry3_status_unavailable"
+                );
+                result.authorizationConsumed = true;
+                result.errorCode = errorCodeOf(error);
+                result.error = sanitizeError(
+                    error,
+                    "",
+                    ""
+                );
+                save(result);
+            }
+
+            status = attach(status, result);
+            output.runtimeReadonlySocketPing =
+                String(result.state);
+            output.runtimeReadonlySocketPingDetails =
+                result;
+            output.runtimeReadonlySocketPingRetry3 =
+                String(result.state);
+            output.runtimeReadonlySocketPingRetry3Details =
+                result;
+            output.runtimeProtocolAdapterPlan =
+                String(
+                    status.protocolAdapterPlan ?
+                        status.protocolAdapterPlan.state :
+                        "checking"
+                );
+            output.runtimeProtocolAdapterPlanDetails =
+                status.protocolAdapterPlan || null;
+            output.protocolAdapterPlanState =
+                output.runtimeProtocolAdapterPlan;
+
+            if (output.runtimeWriteGateDetails) {
+                output.runtimeWriteGateDetails
+                    .protocolAdapterPlanState =
+                    output.protocolAdapterPlanState;
+                output.runtimeWriteGateDetails
+                    .protocolAdapterPlan =
+                    status.protocolAdapterPlan || null;
+                output.runtimeWriteGateDetails
+                    .runtimeReadonlySocketPing =
+                    result;
+                output.runtimeWriteGateDetails
+                    .writeOperationsLocked = true;
+                output.runtimeWriteGateDetails
+                    .destructiveOperations = false;
+            }
+
+            output.writeOperationsLocked = true;
+            output.destructiveOperations = false;
+            return output;
+        };
+    }
+
+    if (!cached ||
+            Number(cached.schemaVersion || 0) !==
+                SCHEMA_VERSION ||
+            String(cached.authorizationId || "") !==
+                AUTHORIZATION_ID) {
+        cached = null;
+    }
+
+    install();
 }());
