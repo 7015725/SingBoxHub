@@ -86,6 +86,17 @@
   - 使用独立 Rhino ES5 入口，避免再次加载完整 UI 模块
   - 复用有效控制服务，或定向清理唯一孤立控制服务
   - 直接 `nohup app_process &`，不再等待长期服务退出
+  - 最多发送一次固定只读 `PING`
+
+- `phases/runtime-stage28-retry1-true-device-output-incomplete.md`
+  - 记录 Retry 1 在约 15 秒预算处再次返回输出不完整
+  - 确认 `nohup` 未让长驻控制服务彻底脱离 ShortX ShellCommand
+  - 未读取 token、未连接 Socket、未发送请求
+
+- `phases/runtime-stage28-retry2-setsid-reconcile.md`
+  - 改用 `toybox setsid` 建立新会话
+  - 将启动事务与独立只读复核拆分为两次 ShellCommand
+  - 即使启动输出不完整，也只复核现有服务，不再次盲目启动
   - 最多发送一次固定只读 `PING`，真机验证待执行
 
 - `phases/runtime-stage29-bootstrap-aftermath-probe.md`
