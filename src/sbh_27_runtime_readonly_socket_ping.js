@@ -1,5 +1,5 @@
 /* SingBoxHub one-shot read-only Runtime LocalSocket PING verification. Rhino ES5 only. */
-SBH.versions.runtimeReadonlySocketPing = 1;
+SBH.versions.runtimeReadonlySocketPing = 2;
 (function () {
     var P = Packages;
     var File = P.java.io.File;
@@ -12,12 +12,14 @@ SBH.versions.runtimeReadonlySocketPing = 1;
     var SecureRandom = P.java.security.SecureRandom;
     var ReflectArray = P.java.lang.reflect.Array;
     var JavaByte = P.java.lang.Byte;
-    var SCHEMA = 1;
+    var JavaString = P.java.lang.String;
+    var Base64 = P.android.util.Base64;
+    var SCHEMA = 2;
     var CONNECT_TIMEOUT_MS = 1500;
     var READ_TIMEOUT_MS = 2000;
-    var TOTAL_BUDGET_MS = 4000;
+    var TOTAL_BUDGET_MS = 15000;
     var MAX_ENDPOINT_BYTES = 65536;
-    var AUTHORIZATION_ID = "stage27-user-authorized-20260802";
+    var AUTHORIZATION_ID = "stage27-retry1-user-authorized-20260802";
     var cacheFile = new File(SBH.paths.cacheDir, "runtime_readonly_socket_ping.json");
     var cached = SBH.files.readJson(cacheFile, null);
 
@@ -29,8 +31,10 @@ SBH.versions.runtimeReadonlySocketPing = 1;
         try {
             if (value !== null && value !== undefined) {
                 value.close();
+                return true;
             }
         } catch (ignored) {}
+        return false;
     }
 
     function valueList(value) {
@@ -54,8 +58,13 @@ SBH.versions.runtimeReadonlySocketPing = 1;
             automaticRetryAllowed: false,
             reusedCachedResult: false,
             endpointContractReady: false,
+            endpointProbeAvailable: false,
+            endpointProbeRefreshed: false,
+            endpointProbeTransport: "shortx_root_shell_base64_memory",
             endpointFileExists: false,
             endpointFileCanonical: false,
+            endpointOwnerValidated: false,
+            endpointModeValidated: false,
             endpointSchemaValidated: false,
             endpointIdentity: null,
             commandAllowlist: ["PING"],
@@ -68,6 +77,7 @@ SBH.versions.runtimeReadonlySocketPing = 1;
             totalBudgetMs: TOTAL_BUDGET_MS,
             attemptStartedAt: 0,
             attemptCompletedAt: 0,
+            endpointRefreshElapsedMs: null,
             connectElapsedMs: null,
             totalElapsedMs: null,
             endpointValueRead: false,
@@ -130,13 +140,16 @@ SBH.versions.runtimeReadonlySocketPing = 1;
         return String(endpointFile().getCanonicalPath());
     }
 
-    function endpointIdentity(file, endpoint) {
+    function endpointIdentity(probe, endpoint) {
         return {
             schemaVersion: Number(endpoint.schemaVersion || 0),
             runtimePid: Number(endpoint.runtimePid || 0),
             createdAt: Number(endpoint.createdAt || 0),
-            size: Number(file.length()),
-            mtime: Number(file.lastModified())
+            size: Number(probe.size || 0),
+            mtimeEpochSeconds: Number(probe.mtime || 0),
+            uid: Number(probe.uid || -1),
+            gid: Number(probe.gid || -1),
+            mode: String(probe.mode || "")
         };
     }
 
@@ -147,7 +160,10 @@ SBH.versions.runtimeReadonlySocketPing = 1;
             Number(identity.runtimePid || 0),
             Number(identity.createdAt || 0),
             Number(identity.size || 0),
-            Number(identity.mtime || 0)
+            Number(identity.mtimeEpochSeconds || 0),
+            Number(identity.uid || -1),
+            Number(identity.gid || -1),
+            String(identity.mode || "")
         ].join("|");
     }
 
@@ -173,21 +189,85 @@ SBH.versions.runtimeReadonlySocketPing = 1;
         };
     }
 
-    function validateEndpoint(file, endpoint) {
-        var canonical = String(file.getCanonicalPath());
-        var expected = expectedEndpointPath();
-        var socketName;
-        var token;
-        if (!file.exists() || !file.isFile()) {
+    function currentProbe() {
+        try {
+            if (SBH.runtime && typeof SBH.runtime.endpointProbe === "function") {
+                return SBH.runtime.endpointProbe();
+            }
+        } catch (ignored) {}
+        return null;
+    }
+
+    function loadProbe(refreshFunction, result) {
+        var probe = currentProbe();
+        var started;
+        if (!probe || probe.exists !== true || !probe.data) {
+            if (typeof refreshFunction !== "function") {
+                throw new Error("ENDPOINT_PROBE_UNAVAILABLE");
+            }
+            started = now();
+            refreshFunction();
+            result.endpointProbeRefreshed = true;
+            result.endpointRefreshElapsedMs = now() - started;
+            probe = currentProbe();
+        }
+        if (!probe) {
+            throw new Error("ENDPOINT_PROBE_UNAVAILABLE");
+        }
+        result.endpointProbeAvailable = true;
+        return probe;
+    }
+
+    function parseProbeEndpoint(probe) {
+        var decoded = null;
+        var text = null;
+        var endpoint = null;
+        if (probe.exists !== true) {
             throw new Error("ENDPOINT_FILE_NOT_FOUND");
         }
-        if (canonical !== expected) {
+        if (probe.error) {
+            throw new Error("ENDPOINT_PROBE_ERROR");
+        }
+        if (!probe.data) {
+            throw new Error("ENDPOINT_PROBE_DATA_MISSING");
+        }
+        try {
+            decoded = Base64.decode(String(probe.data), Base64.DEFAULT);
+            text = String(new JavaString(decoded, "UTF-8"));
+            endpoint = JSON.parse(text);
+            return endpoint;
+        } catch (error) {
+            throw new Error("ENDPOINT_JSON_PARSE_FAILED");
+        } finally {
+            decoded = null;
+            text = null;
+        }
+    }
+
+    function validateProbeEndpoint(probe, endpoint) {
+        var expected = expectedEndpointPath();
+        var real = String(probe.real || "");
+        var size = Number(probe.size || 0);
+        var socketName;
+        var token;
+        if (probe.exists !== true) {
+            throw new Error("ENDPOINT_FILE_NOT_FOUND");
+        }
+        if (!real || real !== expected) {
             throw new Error("ENDPOINT_CANONICAL_PATH_MISMATCH");
         }
-        if (Number(file.length()) <= 0 || Number(file.length()) > MAX_ENDPOINT_BYTES) {
+        if (String(probe.uid || "") !== "1000" ||
+                String(probe.gid || "") !== "1000") {
+            throw new Error("ENDPOINT_OWNER_INVALID");
+        }
+        if (String(probe.mode || "") !== "600") {
+            throw new Error("ENDPOINT_MODE_INVALID");
+        }
+        if (!isFinite(size) || size <= 0 || size > MAX_ENDPOINT_BYTES) {
             throw new Error("ENDPOINT_FILE_SIZE_INVALID");
         }
-        if (!endpoint || Number(endpoint.schemaVersion || 0) !== 1) {
+        if (!endpoint || typeof endpoint !== "object" ||
+                Number(endpoint.schemaVersion || 0) !== 1) {
             throw new Error("ENDPOINT_SCHEMA_INVALID");
         }
         if (!/^\d+$/.test(String(endpoint.runtimePid || ""))) {
@@ -195,17 +275,18 @@ SBH.versions.runtimeReadonlySocketPing = 1;
         }
         socketName = String(endpoint.socketName || "");
         token = String(endpoint.token || "");
-        if (socketName.length < 1 || socketName.length > 128 || /[\r\n\u0000]/.test(socketName)) {
+        if (socketName.length < 1 || socketName.length > 128 ||
+                /[\r\n\u0000]/.test(socketName)) {
             throw new Error("ENDPOINT_SOCKET_NAME_INVALID");
         }
-        if (token.length < 16 || token.length > 256 || /[\r\n\u0000]/.test(token)) {
+        if (token.length < 16 || token.length > 256 ||
+                /[\r\n\u0000]/.test(token)) {
             throw new Error("ENDPOINT_TOKEN_INVALID");
         }
         return {
-            canonical: canonical,
             socketName: socketName,
             token: token,
-            identity: endpointIdentity(file, endpoint)
+            identity: endpointIdentity(probe, endpoint)
         };
     }
 
@@ -245,6 +326,36 @@ SBH.versions.runtimeReadonlySocketPing = 1;
         return text;
     }
 
+    function errorCodeOf(error) {
+        var text = SBH.util.errorText(error);
+        var known = [
+            "SHORTX_DIR_UNAVAILABLE",
+            "ENDPOINT_PROBE_UNAVAILABLE",
+            "ENDPOINT_PROBE_ERROR",
+            "ENDPOINT_PROBE_DATA_MISSING",
+            "ENDPOINT_FILE_NOT_FOUND",
+            "ENDPOINT_CANONICAL_PATH_MISMATCH",
+            "ENDPOINT_OWNER_INVALID",
+            "ENDPOINT_MODE_INVALID",
+            "ENDPOINT_FILE_SIZE_INVALID",
+            "ENDPOINT_JSON_PARSE_FAILED",
+            "ENDPOINT_SCHEMA_INVALID",
+            "ENDPOINT_RUNTIME_PID_INVALID",
+            "ENDPOINT_SOCKET_NAME_INVALID",
+            "ENDPOINT_TOKEN_INVALID",
+            "TOTAL_EXECUTION_BUDGET_EXCEEDED",
+            "UNEXPECTED_RESPONSE_STATUS",
+            "CORRELATION_ECHO_MISMATCH"
+        ];
+        var i;
+        for (i = 0; i < known.length; i += 1) {
+            if (text.indexOf(known[i]) >= 0) {
+                return known[i];
+            }
+        }
+        return "READONLY_SOCKET_PING_FAILED";
+    }
+
     function save(result) {
         cached = result;
         try {
@@ -271,10 +382,10 @@ SBH.versions.runtimeReadonlySocketPing = 1;
         return cached;
     }
 
-    function executeOneShot(status) {
+    function executeOneShot(status, refreshFunction) {
         var gate = statusGate(status);
         var result = blank("readonly_socket_ping_blocked", null);
-        var file = null;
+        var probe = null;
         var endpoint = null;
         var validated = null;
         var existing = null;
@@ -316,12 +427,14 @@ SBH.versions.runtimeReadonlySocketPing = 1;
         result.dryRunInvoked = true;
 
         try {
-            file = endpointFile();
-            result.endpointFileExists = file.exists() && file.isFile();
-            endpoint = SBH.files.readJson(file, null);
+            probe = loadProbe(refreshFunction, result);
+            result.endpointFileExists = probe.exists === true;
+            endpoint = parseProbeEndpoint(probe);
             result.endpointValueRead = true;
-            validated = validateEndpoint(file, endpoint);
+            validated = validateProbeEndpoint(probe, endpoint);
             result.endpointFileCanonical = true;
+            result.endpointOwnerValidated = true;
+            result.endpointModeValidated = true;
             result.endpointSchemaValidated = true;
             result.endpointContractReady = true;
             result.endpointIdentity = validated.identity;
@@ -332,6 +445,7 @@ SBH.versions.runtimeReadonlySocketPing = 1;
             validated.socketName = null;
             validated.token = null;
             endpoint = null;
+            probe = null;
             result.socketNameValueRead = true;
             result.socketNameValueUsed = true;
             result.tokenValueRead = true;
@@ -356,7 +470,7 @@ SBH.versions.runtimeReadonlySocketPing = 1;
             result.socketConnected = true;
 
             writer = new BufferedWriter(
-                new OutputStreamWriter(socket.getOutputStream())
+                new OutputStreamWriter(socket.getOutputStream(), "UTF-8")
             );
             writer.write(token);
             writer.newLine();
@@ -370,7 +484,7 @@ SBH.versions.runtimeReadonlySocketPing = 1;
             result.requestCount = 1;
 
             reader = new BufferedReader(
-                new InputStreamReader(socket.getInputStream())
+                new InputStreamReader(socket.getInputStream(), "UTF-8")
             );
             responseStatus = reader.readLine();
             responseCorrelation = reader.readLine();
@@ -398,7 +512,7 @@ SBH.versions.runtimeReadonlySocketPing = 1;
             result.error = null;
         } catch (error) {
             result.state = "readonly_socket_ping_failed";
-            result.errorCode = result.errorCode || "READONLY_SOCKET_PING_FAILED";
+            result.errorCode = errorCodeOf(error);
             result.error = sanitizeError(error, socketName, token);
             result.adapterImplementationAllowed = false;
             result.readOnlyStatusAdapterReady = false;
@@ -406,15 +520,20 @@ SBH.versions.runtimeReadonlySocketPing = 1;
         } finally {
             closeQuietly(reader);
             closeQuietly(writer);
-            closeQuietly(socket);
-            result.socketClosed = result.socketConnectionAttempted === true;
+            if (socket !== null && socket !== undefined) {
+                result.socketClosed = closeQuietly(socket);
+            } else {
+                result.socketClosed = false;
+            }
             token = null;
             socketName = null;
             correlation = null;
             responseCorrelation = null;
+            responseStatus = null;
             address = null;
             endpoint = null;
             validated = null;
+            probe = null;
             result.sensitiveReferencesCleared = true;
             result.attemptCompletedAt = now();
             result.totalElapsedMs = result.attemptCompletedAt - startedAt;
@@ -558,7 +677,7 @@ SBH.versions.runtimeReadonlySocketPing = 1;
             var result;
             try {
                 status = oldStatus();
-                result = executeOneShot(status);
+                result = executeOneShot(status, oldRefresh);
                 status = attach(status, result);
                 output.runtimeReadonlySocketPing = String(result.state || "not_started");
                 output.runtimeReadonlySocketPingDetails = result;
@@ -586,6 +705,7 @@ SBH.versions.runtimeReadonlySocketPing = 1;
                     sanitizeError(error, "", ""));
                 result.authorizationConsumed = true;
                 result.dryRunInvoked = true;
+                result.errorCode = errorCodeOf(error);
                 output.runtimeReadonlySocketPing = result.state;
                 output.runtimeReadonlySocketPingDetails = result;
             }
