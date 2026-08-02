@@ -67,4 +67,17 @@
   - 未读取 token、未连接 Socket、未发送请求
   - 下一门禁改为先恢复或重新附加 Runtime 控制服务
 
+- `phases/runtime-stage28-control-service-bootstrap-ping.md`
+  - 直接启动 Runtime 控制服务并原子替换过期 endpoint
+  - 校验新进程、endpoint 所有者和命令行身份
+  - 最多执行一次只读 `PING`，不启动 sing-box 核心、TUN 或路由
+  - 真机一次性验证待执行
+
+## 架构决策
+
+- `adr/ADR-0001-direct-control-service-bootstrap.md`
+  - 不调用包含核心/TUN 清理副作用的生产 `ensure`
+  - 只复用已验证的底层 `app_process` 控制服务启动协议
+  - 限制写入范围和启动失败回滚范围
+
 设计冻结后的核心架构变更必须新增 ADR，不直接覆盖历史结论。
