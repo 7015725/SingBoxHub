@@ -30,8 +30,13 @@
 
 - `phases/runtime-readonly-stage24-cfg-ping-contract.md`
   - Runtime 三行请求、两行响应契约的 CFG 感知静态验证
-  - `PING` 响应状态与 correlation 回显识别
-  - 路径敏感寄存器、静态字段和异常边分析
-  - 第 25 阶段只读 dry-run 门禁
+  - `PING` 第一行响应确认是 `PONG`
+  - 记录跨连接循环污染、路径状态上限和 dry-run 阻断项
+
+- `phases/runtime-readonly-stage25-transaction-boundary.md`
+  - 基于第 23、24 阶段证据建立单连接事务摘要
+  - 确认 `PONG` 后 correlation 第二行回显结构
+  - 隔离后续事务中的 START、STOP_CORE、STOP_RUNTIME 副作用污染
+  - 第 26 阶段脱敏 dry-run 请求构造门禁
 
 设计冻结后的核心架构变更必须新增 ADR，不直接覆盖历史结论。
