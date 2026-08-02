@@ -47,9 +47,18 @@
   - 未读取 token、未连接 Socket、未发送请求
 
 - `phases/runtime-readonly-stage27-retry1-endpoint-probe.md`
-  - 使用新的明确授权重试一次只读 `PING`
-  - 复用已验证的 root Shell + Base64 endpoint probe
-  - 强校验 canonical path、属主、权限、schema 和敏感字段格式
-  - 保持一次授权一次请求、禁止自动重试和所有生命周期命令
+  - 使用 root Shell + Base64 endpoint probe
+  - 记录固定 `uid=1000/gid=1000` 假设导致的安全失败
+
+- `phases/runtime-readonly-stage27-retry2-process-identity.md`
+  - 确认 endpoint 实际属于 `uid=0/gid=0`，权限为 `600`
+  - 记录 `$TOYBOX awk` 未能提取 `/proc` UID/GID 的安全失败
+  - 0 次 Socket 连接、0 次请求、0 次 token 读取
+
+- `phases/runtime-readonly-stage27-retry3-shell-read.md`
+  - 按 ShortX ShellCommand 实机调用契约读取 shellOut、shellErr、shellCode
+  - 使用 Android Shell 内建 `read + case` 解析 `/proc/<pid>/status`
+  - 增加 Runtime cmdline 身份绑定与 endpoint 二次 stat
+  - 继续执行一次授权、一次 PING、禁止自动重试
 
 设计冻结后的核心架构变更必须新增 ADR，不直接覆盖历史结论。
