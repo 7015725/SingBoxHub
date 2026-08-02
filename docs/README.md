@@ -108,6 +108,18 @@
   - 使用双 `setsid` 同步派发，不在启动 Shell 中使用后台 `&`
   - 通过事务 PID 文件和 canonical endpoint 进行已知 PID 复核
   - 移除全量 `/proc` 扫描并增加本次事务精确回滚
+  - 最多发送一次固定只读 `PING`
+
+- `phases/runtime-stage28-retry3-true-device-localsocket-not-created.md`
+  - 真机确认双 `setsid` 派发、已知 PID 复核和 endpoint 发布全部成功
+  - 控制服务 PID `11451` 保持运行，身份、所有者、mode 和 schema 均通过
+  - 定位连接前调用 `LocalSocket.setSoTimeout()` 导致 `socket not created`
+  - 未连接 Socket、未发送请求
+
+- `phases/runtime-stage28-retry4-localsocket-api-order.md`
+  - 改用公开单参数 `LocalSocket.connect(LocalSocketAddress)`
+  - 连接成功后再设置读超时，禁用不受支持的双参数 connect 重载
+  - 增加连接、超时配置、请求写入和响应读取的精确错误分类
   - 最多发送一次固定只读 `PING`，真机验证待执行
 
 - `phases/runtime-stage29-bootstrap-aftermath-probe.md`
