@@ -1,5 +1,5 @@
 /*
- * SingBoxHub Stage 44 Retry 3: root-shell-only binary check.
+ * SingBoxHub Stage 45: selector default-node preflight.
  * Uses one pinned module commit for manifest and all modules.
  * ShortX / Rhino ES5.
  */
@@ -79,7 +79,9 @@
         "        \"sbh_57_shortx_shell_binary_check.js\",",
         "        \"sbh_58_binary_permission_bridge.js\",",
         "        \"sbh_59_root_shell_only_binary_check.js\",",
-        "        \"sbh_56_binary_check_error_redaction.js\"",
+        "        \"sbh_56_binary_check_error_redaction.js\",",
+        "        \"sbh_60_selector_default_preflight.js\",",
+        "        \"sbh_61_selector_default_preflight_ui.js\",",
         "    ];"
     ].join("\n");
 
@@ -101,7 +103,7 @@
 
         try {
             connection = new URL(
-                TEMPLATE_URL + "?stage44retry3=" +
+                TEMPLATE_URL + "?stage45=" +
                 String(P.java.lang.System.currentTimeMillis())
             ).openConnection();
             connection.setConnectTimeout(15000);
@@ -157,7 +159,7 @@
     source = replaceRequired(
         source,
         "var ENTRY_VERSION = 14;",
-        "var ENTRY_VERSION = 60;",
+        "var ENTRY_VERSION = 61;",
         "entry version"
     );
     source = replaceRequired(
@@ -169,7 +171,7 @@
     source = replaceRequired(
         source,
         "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/\" + REF + \"/\";",
-        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/13e93b6e2167a74267bdebdc55b0d84561e931a3/\";",
+        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/6d011057b8dd210a9ec84189966fa6ec654ffa8f/\";",
         "pinned module commit"
     );
     source = replaceRequired(
@@ -218,10 +220,11 @@
     var rawResult = eval(source);
     var result = typeof rawResult === "string" ?
         JSON.parse(String(rawResult)) : rawResult;
-    result.stage = "credential_stage44_retry3_root_shell_only";
+    result.stage = "selector_stage45_default_node_preflight";
     result.strictModuleActivation = true;
-    result.subscriptionStage = 44;
-    result.credentialStage = 44;
+    result.subscriptionStage = 45;
+    result.credentialStage = 45;
+    result.selectorStage = 45;
     result.stage44Retry = 3;
     result.subscriptionCrudExpected = true;
     result.subscriptionFetchExpected = true;
@@ -236,6 +239,13 @@
     result.ephemeralBinaryCheckExpected = true;
     result.shortxShellBinaryCheckExpected = true;
     result.rootShellOnlyBinaryCheckExpected = true;
+    result.selectorDefaultPreflightExpected = true;
+    result.selectorDefaultSelectionEnabled = true;
+    result.selectorDefaultSelectionClientDatabaseOnly = true;
+    result.selectorPreflightManualOnly = true;
+    result.selectorPreflightTemporaryConfigOnly = true;
+    result.selectorPreflightProductionConfigModified = false;
+    result.selectorRuntimeWriteEnabled = false;
     result.binaryPermissionBridgeBypassed = true;
     result.binaryPermissionBridgeUsed = false;
     result.binaryCheckJavaBinaryPrecheckUsed = false;
@@ -272,13 +282,13 @@
     result.closeButtonRetained = true;
     result.moduleFetchMode = "single_commit_pinned";
     result.pinnedModuleCommit =
-        "13e93b6e2167a74267bdebdc55b0d84561e931a3";
-    result.expectedModuleSetVersion = "20260803.21";
-    result.expectedModuleCount = 38;
-    result.expectedLastModule = "sbh_56_binary_check_error_redaction.js";
+        "6d011057b8dd210a9ec84189966fa6ec654ffa8f";
+    result.expectedModuleSetVersion = "20260803.22";
+    result.expectedModuleCount = 40;
+    result.expectedLastModule = "sbh_61_selector_default_preflight_ui.js";
     result.moduleSetActivated =
         result.ok === true &&
-        String(result.moduleSetVersion || "") === "20260803.21" &&
+        String(result.moduleSetVersion || "") === "20260803.22" &&
         result.sync &&
         result.sync.warning === null &&
         result.sync.fallback === false;
