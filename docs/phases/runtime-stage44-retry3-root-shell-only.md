@@ -1,6 +1,6 @@
 # Runtime Stage 44 Retry 3：仅 Root Shell 执行 sing-box 检查
 
-## 真机结论
+## 前置定位
 
 Stage 44 Retry 2 的临时权限桥已成功准备和恢复，但内部检查仍停在 `binary_precheck`：
 
@@ -24,6 +24,34 @@ Stage 44 Retry 2 的临时权限桥已成功准备和恢复，但内部检查仍
 5. 临时配置在检查后覆盖并删除；
 6. 输出继续进行路径、服务器、UUID、密码和密钥脱敏。
 
+## 真机通过结果
+
+2026-08-03 真机验证通过：
+
+- `candidateCount=51`
+- `candidateTypeCounts.hysteria2=18`
+- `candidateTypeCounts.vless=33`
+- `temporaryConfigByteCount=27762`
+- `temporaryConfigWritten=true`
+- `temporaryConfigOverwriteSucceeded=true`
+- `temporaryConfigDeleted=true`
+- `temporaryConfigPersisted=false`
+- `executionTransport=shortx_shell_action`
+- `shortxExecuteActionUsed=true`
+- `javaBinaryPrecheckUsed=false`
+- `permissionBridgeUsed=false`
+- `javaProcessBuilderUsed=false`
+- `shellUid=0`
+- `shellBinaryExists=true`
+- `shellBinaryExecutable=true`
+- `shellConfigReadable=true`
+- `singBoxBinaryCheckInvoked=true`
+- `singBoxCheckTimedOut=false`
+- `singBoxExitCode=0`
+- `singBoxCheckPassed=true`
+
+因此，后续 sing-box 二进制检查正式采用 `ShortX ShellCommand + shortx.executeAction()`，不再使用 Java `ProcessBuilder`、Java 文件预检查或权限桥。
+
 ## 安全边界
 
 - 不修改生产配置；
@@ -33,25 +61,5 @@ Stage 44 Retry 2 的临时权限桥已成功准备和恢复，但内部检查仍
 - 不返回候选 outbound 或凭据明文；
 - 不使用 Java `ProcessBuilder`；
 - 不使用 Java 二进制预检查；
-- 不使用权限桥。
-
-## 通过门禁
-
-启动：
-
-- `rootShellOnlyBinaryCheckReady=true`
-- `candidateBinaryCheckJavaBinaryPrecheckUsed=false`
-- `candidateBinaryCheckPermissionBridgeUsed=false`
-- `candidateBinaryCheckJavaProcessBuilderUsed=false`
-
-动作：
-
-- `shortxExecuteActionUsed=true`
-- `shellUid=0`
-- `shellBinaryExists=true`
-- `shellBinaryExecutable=true`
-- `shellConfigReadable=true`
-- `singBoxBinaryCheckInvoked=true`
-- `temporaryConfigDeleted=true`
-- `runtimeFilesModified=false`
-- `productionConfigModified=false`
+- 不使用权限桥；
+- 临时配置完成检查后覆盖并删除。
