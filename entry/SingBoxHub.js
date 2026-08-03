@@ -1,5 +1,5 @@
 /*
- * SingBoxHub Stage 41: encrypted subscription credential import.
+ * SingBoxHub Stage 42: credential coverage audit.
  * Uses one pinned module commit for manifest and all modules.
  * ShortX / Rhino ES5.
  */
@@ -70,7 +70,9 @@
         "        \"sbh_44_subscription_crud_ui.js\",",
         "        \"sbh_48_credential_vault_ui.js\",",
         "        \"sbh_49_subscription_credential_import.js\",",
-        "        \"sbh_50_subscription_credential_import_ui.js\"",
+        "        \"sbh_50_subscription_credential_import_ui.js\",",
+        "        \"sbh_51_credential_coverage_audit.js\",",
+        "        \"sbh_52_credential_coverage_audit_ui.js\"",
         "    ];"
     ].join("\n");
 
@@ -92,7 +94,7 @@
 
         try {
             connection = new URL(
-                TEMPLATE_URL + "?stage41=" +
+                TEMPLATE_URL + "?stage42=" +
                 String(P.java.lang.System.currentTimeMillis())
             ).openConnection();
             connection.setConnectTimeout(15000);
@@ -148,7 +150,7 @@
     source = replaceRequired(
         source,
         "var ENTRY_VERSION = 14;",
-        "var ENTRY_VERSION = 54;",
+        "var ENTRY_VERSION = 55;",
         "entry version"
     );
     source = replaceRequired(
@@ -160,7 +162,7 @@
     source = replaceRequired(
         source,
         "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/\" + REF + \"/\";",
-        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/c1bb3d5ff4f88d6e420d4dd83ec0c10300185d82/\";",
+        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/278bc22cdba3e0b99f144c6c4ab6e927a7da64e5/\";",
         "pinned module commit"
     );
     source = replaceRequired(
@@ -209,10 +211,10 @@
     var rawResult = eval(source);
     var result = typeof rawResult === "string" ?
         JSON.parse(String(rawResult)) : rawResult;
-    result.stage = "credential_stage41_encrypted_subscription_import";
+    result.stage = "credential_stage42_coverage_audit";
     result.strictModuleActivation = true;
-    result.subscriptionStage = 41;
-    result.credentialStage = 41;
+    result.subscriptionStage = 42;
+    result.credentialStage = 42;
     result.subscriptionCrudExpected = true;
     result.subscriptionFetchExpected = true;
     result.subscriptionFetchManualOnly = true;
@@ -221,6 +223,9 @@
     result.subscriptionNodeCatalogExpected = true;
     result.credentialVaultExpected = true;
     result.subscriptionCredentialImportExpected = true;
+    result.credentialCoverageAuditExpected = true;
+    result.credentialCoverageAuditPlaintextRead = false;
+    result.credentialCoverageAuditNetworkAccessed = false;
     result.subscriptionCredentialImportManualOnly = true;
     result.subscriptionCredentialPlaintextPersisted = false;
     result.subscriptionCredentialsRuntimeUsable = false;
@@ -240,13 +245,13 @@
     result.closeButtonRetained = true;
     result.moduleFetchMode = "single_commit_pinned";
     result.pinnedModuleCommit =
-        "c1bb3d5ff4f88d6e420d4dd83ec0c10300185d82";
-    result.expectedModuleSetVersion = "20260803.15";
-    result.expectedModuleCount = 29;
-    result.expectedLastModule = "sbh_50_subscription_credential_import_ui.js";
+        "278bc22cdba3e0b99f144c6c4ab6e927a7da64e5";
+    result.expectedModuleSetVersion = "20260803.16";
+    result.expectedModuleCount = 31;
+    result.expectedLastModule = "sbh_52_credential_coverage_audit_ui.js";
     result.moduleSetActivated =
         result.ok === true &&
-        String(result.moduleSetVersion || "") === "20260803.15" &&
+        String(result.moduleSetVersion || "") === "20260803.16" &&
         result.sync &&
         result.sync.warning === null &&
         result.sync.fallback === false;
