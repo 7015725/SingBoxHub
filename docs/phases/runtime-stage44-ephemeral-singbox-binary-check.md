@@ -22,10 +22,11 @@ Stage 43 真机通过：
 
 - `sbh_53_candidate_config_preflight.js` 升级至 v2
 - 新增 `sbh_55_ephemeral_binary_check_ui.js`
+- 新增 `sbh_56_binary_check_error_redaction.js`
 - moduleSetVersion：`20260803.18`
 - entryVersion：`57`
-- moduleCount：`34`
-- 固定模块提交：`4aaa1b7ce24f391ef6e48159dc3974561e654d78`
+- moduleCount：`35`
+- 固定模块提交：`291eb68a2121bb83ace188e95e42213c62d7e2a8`
 
 ## 执行流程
 
@@ -38,7 +39,8 @@ Stage 43 真机通过：
 7. 调用 `SingBoxHub/bin/sing-box check -c <临时文件>`。
 8. 最长等待 30 秒，合并并限制输出为 256 KiB。
 9. 成功时不返回二进制原始输出；失败时对路径、服务器、tag、UUID、密码、密钥等已知值执行脱敏。
-10. 对临时文件执行尽力覆盖并删除，再清除内存引用。
+10. 外层异常只返回固定错误码，不回传原始 Java 错误文本。
+11. 对临时文件执行尽力覆盖并删除，再清除内存引用。
 
 ## 安全边界
 
@@ -50,6 +52,7 @@ Stage 43 真机通过：
 - 不访问订阅网络。
 - 不返回临时文件绝对路径。
 - 不返回候选 outbound 或凭据明文。
+- 不返回未脱敏的 Java/CLI 外层错误。
 - Flash/文件系统层面的物理安全擦除不作保证，结果中明确返回 `temporaryConfigSecureEraseGuaranteed=false`。
 
 ## 真机门禁
@@ -62,6 +65,8 @@ Stage 43 真机通过：
 - `candidateBinaryCheckReady=true`
 - `ephemeralBinaryCheckUiReady=true`
 - `ephemeralBinaryCheckButtonReady=true`
+- `ephemeralBinaryCheckOuterErrorReturned=false`
+- `ephemeralBinaryCheckSanitizedDiagnosticOnly=true`
 
 手动检查通过：
 
