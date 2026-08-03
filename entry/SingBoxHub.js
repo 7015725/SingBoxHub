@@ -1,5 +1,5 @@
 /*
- * SingBoxHub Stage 45: selector default-node preflight.
+ * SingBoxHub Stage 46: read-only production promotion audit.
  * Uses one pinned module commit for manifest and all modules.
  * ShortX / Rhino ES5.
  */
@@ -82,6 +82,8 @@
         "        \"sbh_56_binary_check_error_redaction.js\",",
         "        \"sbh_60_selector_default_preflight.js\",",
         "        \"sbh_61_selector_default_preflight_ui.js\",",
+        "        \"sbh_62_production_promotion_audit.js\",",
+        "        \"sbh_63_production_promotion_audit_ui.js\",",
         "    ];"
     ].join("\n");
 
@@ -103,7 +105,7 @@
 
         try {
             connection = new URL(
-                TEMPLATE_URL + "?stage45=" +
+                TEMPLATE_URL + "?stage46=" +
                 String(P.java.lang.System.currentTimeMillis())
             ).openConnection();
             connection.setConnectTimeout(15000);
@@ -159,7 +161,7 @@
     source = replaceRequired(
         source,
         "var ENTRY_VERSION = 14;",
-        "var ENTRY_VERSION = 61;",
+        "var ENTRY_VERSION = 62;",
         "entry version"
     );
     source = replaceRequired(
@@ -171,7 +173,7 @@
     source = replaceRequired(
         source,
         "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/\" + REF + \"/\";",
-        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/6d011057b8dd210a9ec84189966fa6ec654ffa8f/\";",
+        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/5758e669d51cf1ffb00e9aac7439c292c280bf4f/\";",
         "pinned module commit"
     );
     source = replaceRequired(
@@ -220,11 +222,12 @@
     var rawResult = eval(source);
     var result = typeof rawResult === "string" ?
         JSON.parse(String(rawResult)) : rawResult;
-    result.stage = "selector_stage45_default_node_preflight";
+    result.stage = "production_stage46_readonly_promotion_audit";
     result.strictModuleActivation = true;
-    result.subscriptionStage = 45;
-    result.credentialStage = 45;
-    result.selectorStage = 45;
+    result.subscriptionStage = 46;
+    result.credentialStage = 46;
+    result.selectorStage = 46;
+    result.productionStage = 46;
     result.stage44Retry = 3;
     result.subscriptionCrudExpected = true;
     result.subscriptionFetchExpected = true;
@@ -240,6 +243,11 @@
     result.shortxShellBinaryCheckExpected = true;
     result.rootShellOnlyBinaryCheckExpected = true;
     result.selectorDefaultPreflightExpected = true;
+    result.productionPromotionAuditExpected = true;
+    result.productionPromotionAuditReadOnly = true;
+    result.productionPromotionExplicitWriteAuthorizationRequired = true;
+    result.productionPromotionRuntimeWriteEnabled = false;
+    result.productionPromotionConfigModified = false;
     result.selectorDefaultSelectionEnabled = true;
     result.selectorDefaultSelectionClientDatabaseOnly = true;
     result.selectorPreflightManualOnly = true;
@@ -282,13 +290,13 @@
     result.closeButtonRetained = true;
     result.moduleFetchMode = "single_commit_pinned";
     result.pinnedModuleCommit =
-        "6d011057b8dd210a9ec84189966fa6ec654ffa8f";
-    result.expectedModuleSetVersion = "20260803.22";
-    result.expectedModuleCount = 40;
-    result.expectedLastModule = "sbh_61_selector_default_preflight_ui.js";
+        "5758e669d51cf1ffb00e9aac7439c292c280bf4f";
+    result.expectedModuleSetVersion = "20260803.23";
+    result.expectedModuleCount = 42;
+    result.expectedLastModule = "sbh_63_production_promotion_audit_ui.js";
     result.moduleSetActivated =
         result.ok === true &&
-        String(result.moduleSetVersion || "") === "20260803.22" &&
+        String(result.moduleSetVersion || "") === "20260803.23" &&
         result.sync &&
         result.sync.warning === null &&
         result.sync.fallback === false;
