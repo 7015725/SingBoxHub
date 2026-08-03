@@ -6,7 +6,31 @@
 - 模块集：`20260803.15`
 - 模块数：29
 - 固定模块提交：`c1bb3d5ff4f88d6e420d4dd83ec0c10300185d82`
-- 状态：待真机验证
+- 状态：真机通过，覆盖率差异转 Stage 42 审计
+
+## 真机结果
+
+启动门禁通过：
+
+- `entryVersion=54`
+- `moduleSetVersion=20260803.15`
+- 29 个模块严格激活；
+- `subscriptionCredentialImportReady=true`
+- `subscriptionCredentialImportUiReady=true`
+- `subscriptionCredentialPlaintextPersisted=false`
+- `subscriptionCredentialPlaintextReturned=false`
+- `subscriptionCredentialsRuntimeUsable=false`
+- Runtime、配置、Core、TUN 和路由修改标志全部为 `false`。
+
+实际订阅执行“安全入库”后，界面确认：
+
+- 本地节点：51；
+- Android Keystore 保险库密文记录：50；
+- 状态提示“凭据已加密写入保险库”；
+- SQLite 保险库表只有 `record_key`、`purpose`、`iv_b64`、`cipher_b64`、`aad_sha256` 和时间戳字段；
+- 无明文字段。
+
+51 个节点与 50 条凭据之间的差异不在 Stage 41 中猜测或自动修复，转交 Stage 42 通过只读 SQL 与 Keystore 记录存在性审计定位。
 
 ## 前置门禁
 
@@ -90,21 +114,6 @@ Stage 40 Android Keystore 保险库已完成真机自检：
 - 不修改路由、DNS、防火墙；
 - 节点继续标记 `runtime_usable=false`。
 
-## 真机门禁
-
-1. `entryVersion=54`；
-2. `moduleSetVersion=20260803.15`，29 个模块严格激活；
-3. `subscriptionCredentialImportReady=true`；
-4. `subscriptionCredentialImportUiReady=true`；
-5. 先执行“解析入库”，再执行“安全入库”；
-6. 结果 `ok=true`、`encryptedCredentialCount>0`、`matchedNodeCount>0`；
-7. `plaintextCredentialPersisted=false`；
-8. `plaintextCredentialReturned=false`；
-9. `rawBodyPersisted=false`；
-10. `runtimeUsable=false`；
-11. Runtime、配置、Core、TUN 和路由修改标志全部为 `false`；
-12. 删除测试订阅后，关联凭据记录数量恢复为 0。
-
 ## 后续阶段
 
-Stage 41 通过后，下一阶段只生成内存中的 sing-box 出站配置预览并执行结构校验。未经再次明确授权，不写生产 Runtime 配置，也不启动 Core/TUN。
+Stage 42 先完成凭据覆盖率审计和状态修正。覆盖率规则稳定前，不生成 Runtime 配置预览。
