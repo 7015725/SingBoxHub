@@ -1,5 +1,5 @@
-/* SingBoxHub Stage46 read-only production promotion audit. Rhino ES5 only. */
-SBH.versions.productionPromotionAudit = 1;
+/* SingBoxHub Stage46 Retry1 completion-marker audit. Rhino ES5 only. */
+SBH.versions.productionPromotionAudit = 2;
 
 (function () {
     "use strict";
@@ -233,6 +233,10 @@ SBH.versions.productionPromotionAudit = 1;
             raw,
             "STAT_TOOL"
         );
+        var auditComplete = markerBoolean(
+            raw,
+            "READ_ONLY_AUDIT"
+        );
         var currentHash = marker(
             raw,
             "TARGET_SHA256"
@@ -266,7 +270,7 @@ SBH.versions.productionPromotionAudit = 1;
                 targetReadable
             );
         var metadataGate =
-            shellResult.code === 0 &&
+            auditComplete &&
             shellUid === 0 &&
             dirExists &&
             !dirSymlink &&
@@ -424,8 +428,17 @@ SBH.versions.productionPromotionAudit = 1;
                 shellUid,
             shellCode:
                 shellResult.code,
+            shellCompletionMarkerObserved:
+                auditComplete,
+            shellCodeAuthoritative:
+                false,
+            shellTransportCodeAnomalous:
+                auditComplete &&
+                shellResult.code !== 0,
+            auditSuccessDerivedFromCompletionMarker:
+                true,
             shellDiagnostic:
-                shellResult.code === 0 ?
+                auditComplete ?
                     null :
                     stripMarkers(raw).substring(0, 500),
             candidateConfigPersisted:
@@ -588,7 +601,7 @@ SBH.versions.productionPromotionAudit = 1;
         var selected =
             selectorService.getSelectedNode();
 
-        output.productionPromotionAuditVersion = 1;
+        output.productionPromotionAuditVersion = 2;
         output.productionPromotionAuditReady = true;
         output.productionPromotionAuditManualOnly = true;
         output.productionPromotionAuditReadOnly = true;
@@ -607,6 +620,10 @@ SBH.versions.productionPromotionAudit = 1;
         output.productionPromotionExplicitAuthorizationRequired =
             true;
         output.productionPromotionRuntimeWriteEnabled =
+            false;
+        output.productionPromotionAuditCompletionMarkerRequired =
+            true;
+        output.productionPromotionAuditShellCodeAuthoritative =
             false;
         output.productionPromotionConfigModified =
             false;
