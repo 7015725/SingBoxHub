@@ -1,5 +1,5 @@
 /*
- * SingBoxHub Stage 38: manual subscription fetch and format probe.
+ * SingBoxHub Stage 39: sanitized local subscription node catalog.
  * Uses one pinned module commit for manifest and all modules.
  * ShortX / Rhino ES5.
  */
@@ -65,6 +65,7 @@
         "        \"sbh_42_inline_feedback.js\",",
         "        \"sbh_43_subscription_repository.js\",",
         "        \"sbh_45_subscription_fetch_probe.js\",",
+        "        \"sbh_46_subscription_node_catalog.js\",",
         "        \"sbh_44_subscription_crud_ui.js\"",
         "    ];"
     ].join("\n");
@@ -87,7 +88,7 @@
 
         try {
             connection = new URL(
-                TEMPLATE_URL + "?stage38=" +
+                TEMPLATE_URL + "?stage39=" +
                 String(P.java.lang.System.currentTimeMillis())
             ).openConnection();
             connection.setConnectTimeout(15000);
@@ -143,7 +144,7 @@
     source = replaceRequired(
         source,
         "var ENTRY_VERSION = 14;",
-        "var ENTRY_VERSION = 51;",
+        "var ENTRY_VERSION = 52;",
         "entry version"
     );
     source = replaceRequired(
@@ -155,7 +156,7 @@
     source = replaceRequired(
         source,
         "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/\" + REF + \"/\";",
-        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/26e81297e43016c12fe699851732aa55aa0354eb/\";",
+        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/260a9e16f6b6d143fd4919c81a0e6c5a696fa05a/\";",
         "pinned module commit"
     );
     source = replaceRequired(
@@ -204,14 +205,18 @@
     var rawResult = eval(source);
     var result = typeof rawResult === "string" ?
         JSON.parse(String(rawResult)) : rawResult;
-    result.stage = "subscription_stage38_manual_fetch_probe";
+    result.stage = "subscription_stage39_sanitized_node_catalog";
     result.strictModuleActivation = true;
-    result.subscriptionStage = 38;
+    result.subscriptionStage = 39;
     result.subscriptionCrudExpected = true;
     result.subscriptionFetchExpected = true;
     result.subscriptionFetchManualOnly = true;
     result.subscriptionFetchAutomaticRetry = false;
     result.subscriptionFetchRawBodyPersisted = false;
+    result.subscriptionNodeCatalogExpected = true;
+    result.subscriptionNodeCredentialsPersisted = false;
+    result.subscriptionNodesRuntimeUsable = false;
+    result.subscriptionNodeImportManualOnly = true;
     result.subscriptionDownloadEnabled = true;
     result.subscriptionDownloadAutomatic = false;
     result.subscriptionRuntimeWriteEnabled = false;
@@ -222,13 +227,13 @@
     result.closeButtonRetained = true;
     result.moduleFetchMode = "single_commit_pinned";
     result.pinnedModuleCommit =
-        "26e81297e43016c12fe699851732aa55aa0354eb";
-    result.expectedModuleSetVersion = "20260803.12";
-    result.expectedModuleCount = 24;
+        "260a9e16f6b6d143fd4919c81a0e6c5a696fa05a";
+    result.expectedModuleSetVersion = "20260803.13";
+    result.expectedModuleCount = 25;
     result.expectedLastModule = "sbh_44_subscription_crud_ui.js";
     result.moduleSetActivated =
         result.ok === true &&
-        String(result.moduleSetVersion || "") === "20260803.12" &&
+        String(result.moduleSetVersion || "") === "20260803.13" &&
         result.sync &&
         result.sync.warning === null &&
         result.sync.fallback === false;
