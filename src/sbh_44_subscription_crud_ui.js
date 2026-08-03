@@ -1,5 +1,5 @@
 /* SingBoxHub Stage37 subscription CRUD UI. Rhino ES5 only. */
-SBH.versions.subscriptionCrudUi = 1;
+SBH.versions.subscriptionCrudUi = 2;
 
 (function () {
     "use strict";
@@ -11,6 +11,7 @@ SBH.versions.subscriptionCrudUi = 1;
     var C = SBH.theme.colors;
     var W = SBH.widgets;
     var repository = SBH.subscriptionRepository;
+    var fetchProbe = SBH.subscriptionFetchProbe;
     var originalStart = SBH.app.start;
 
     function formatTime(value) {
@@ -195,7 +196,28 @@ SBH.versions.subscriptionCrudUi = 1;
                 JSON.stringify(value, null, 2)
             );
             SBH.util.toast(
-                "已生成脱敏只读预览"
+                "已生成本地脱敏预览"
+            );
+        }
+
+        function fetchRow(row) {
+            previewText.setText(
+                "正在执行一次手动订阅抓取。不会自动重试、" +
+                "不会保存原始响应、不会写 Runtime 配置。"
+            );
+            SBH.util.toast("正在抓取订阅并探测格式");
+            fetchProbe.probeAsync(
+                row.id,
+                function (result) {
+                    previewText.setText(
+                        JSON.stringify(result, null, 2)
+                    );
+                    SBH.util.toast(
+                        result.ok === true ?
+                            "订阅抓取与格式探测完成" :
+                            "订阅抓取失败，已显示脱敏错误"
+                    );
+                }
             );
         }
 
@@ -247,6 +269,7 @@ SBH.versions.subscriptionCrudUi = 1;
             );
             var actionRow1 = W.row();
             var actionRow2 = W.row();
+            var actionRow3 = W.row();
 
             card.setPadding(
                 SBH.util.dp(13),
@@ -336,24 +359,24 @@ SBH.versions.subscriptionCrudUi = 1;
             );
             actionRow2.addView(
                 smallButton(
-                    row.enabled ? "停用" : "启用",
-                    row.enabled ? "pause" : "play",
-                    C.orange,
-                    C.orangeSoft,
+                    "抓取探测",
+                    "reload",
+                    C.green,
+                    C.greenSoft,
                     function () {
-                        toggleRow(row);
+                        fetchRow(row);
                     }
                 ),
                 W.lp(0, SBH.util.dp(40), 1)
             );
             actionRow2.addView(
                 smallButton(
-                    "删除",
-                    "close",
-                    C.coral,
-                    C.coralSoft,
+                    row.enabled ? "停用" : "启用",
+                    row.enabled ? "pause" : "play",
+                    C.orange,
+                    C.orangeSoft,
                     function () {
-                        deleteRow(row);
+                        toggleRow(row);
                     }
                 ),
                 W.margins(
@@ -365,6 +388,26 @@ SBH.versions.subscriptionCrudUi = 1;
                 )
             );
             card.addView(actionRow2);
+
+            actionRow3.setPadding(
+                0,
+                SBH.util.dp(8),
+                0,
+                0
+            );
+            actionRow3.addView(
+                smallButton(
+                    "删除",
+                    "close",
+                    C.coral,
+                    C.coralSoft,
+                    function () {
+                        deleteRow(row);
+                    }
+                ),
+                W.lp(W.MATCH, SBH.util.dp(40))
+            );
+            card.addView(actionRow3);
             return card;
         }
 
@@ -543,6 +586,10 @@ SBH.versions.subscriptionCrudUi = 1;
     if (!repository) {
         throw new Error("Subscription repository unavailable");
     }
+    if (!fetchProbe ||
+            typeof fetchProbe.probeAsync !== "function") {
+        throw new Error("Subscription fetch probe unavailable");
+    }
 
     SBH.navigation.register(1, build);
 
@@ -553,7 +600,7 @@ SBH.versions.subscriptionCrudUi = 1;
     SBH.app.start = function () {
         var output = originalStart();
 
-        output.subscriptionCrudUiVersion = 1;
+        output.subscriptionCrudUiVersion = 2;
         output.subscriptionCrudUiReady = true;
         output.subscriptionCrudOperations = [
             "create",
@@ -561,9 +608,12 @@ SBH.versions.subscriptionCrudUi = 1;
             "update",
             "enable_disable",
             "delete",
-            "readonly_preview"
+            "readonly_preview",
+            "manual_fetch_probe"
         ];
         output.subscriptionPreviewQueryMasked = true;
+        output.subscriptionFetchButtonReady = true;
+        output.subscriptionFetchManualOnly = true;
         output.subscriptionNetworkAccessed = false;
         output.subscriptionRuntimeConfigModified = false;
         output.subscriptionCoreInvoked = false;
