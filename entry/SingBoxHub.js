@@ -75,7 +75,8 @@
         "        \"sbh_52_credential_coverage_audit_ui.js\",",
         "        \"sbh_53_candidate_config_preflight.js\",",
         "        \"sbh_54_candidate_config_preflight_ui.js\",",
-        "        \"sbh_55_ephemeral_binary_check_ui.js\"",
+        "        \"sbh_55_ephemeral_binary_check_ui.js\",",
+        "        \"sbh_56_binary_check_error_redaction.js\"",
         "    ];"
     ].join("\n");
 
@@ -165,7 +166,7 @@
     source = replaceRequired(
         source,
         "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/\" + REF + \"/\";",
-        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/4aaa1b7ce24f391ef6e48159dc3974561e654d78/\";",
+        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/291eb68a2121bb83ace188e95e42213c62d7e2a8/\";",
         "pinned module commit"
     );
     source = replaceRequired(
@@ -258,10 +259,10 @@
     result.closeButtonRetained = true;
     result.moduleFetchMode = "single_commit_pinned";
     result.pinnedModuleCommit =
-        "4aaa1b7ce24f391ef6e48159dc3974561e654d78";
+        "291eb68a2121bb83ace188e95e42213c62d7e2a8";
     result.expectedModuleSetVersion = "20260803.18";
-    result.expectedModuleCount = 34;
-    result.expectedLastModule = "sbh_55_ephemeral_binary_check_ui.js";
+    result.expectedModuleCount = 35;
+    result.expectedLastModule = "sbh_56_binary_check_error_redaction.js";
     result.moduleSetActivated =
         result.ok === true &&
         String(result.moduleSetVersion || "") === "20260803.18" &&
