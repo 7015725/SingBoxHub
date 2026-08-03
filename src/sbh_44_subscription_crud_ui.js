@@ -5,6 +5,7 @@ SBH.versions.subscriptionCrudUi = 1;
     "use strict";
 
     var P = Packages;
+    var View = P.android.view.View;
     var Gravity = P.android.view.Gravity;
     var InputType = P.android.text.InputType;
     var C = SBH.theme.colors;
