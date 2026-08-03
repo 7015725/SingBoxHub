@@ -1,5 +1,5 @@
 /*
- * SingBoxHub Stage 46: read-only production promotion audit.
+ * SingBoxHub Stage 46 Retry 1: completion-marker audit.
  * Uses one pinned module commit for manifest and all modules.
  * ShortX / Rhino ES5.
  */
@@ -105,7 +105,7 @@
 
         try {
             connection = new URL(
-                TEMPLATE_URL + "?stage46=" +
+                TEMPLATE_URL + "?stage46retry1=" +
                 String(P.java.lang.System.currentTimeMillis())
             ).openConnection();
             connection.setConnectTimeout(15000);
@@ -161,7 +161,7 @@
     source = replaceRequired(
         source,
         "var ENTRY_VERSION = 14;",
-        "var ENTRY_VERSION = 62;",
+        "var ENTRY_VERSION = 63;",
         "entry version"
     );
     source = replaceRequired(
@@ -173,7 +173,7 @@
     source = replaceRequired(
         source,
         "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/\" + REF + \"/\";",
-        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/5758e669d51cf1ffb00e9aac7439c292c280bf4f/\";",
+        "var RAW_BASE = \"https://raw.githubusercontent.com/7015725/SingBoxHub/8b252e781aec312c6350d8a6201bf3343ae4a8b6/\";",
         "pinned module commit"
     );
     source = replaceRequired(
@@ -228,6 +228,7 @@
     result.credentialStage = 46;
     result.selectorStage = 46;
     result.productionStage = 46;
+    result.stage46Retry = 1;
     result.stage44Retry = 3;
     result.subscriptionCrudExpected = true;
     result.subscriptionFetchExpected = true;
@@ -245,6 +246,8 @@
     result.selectorDefaultPreflightExpected = true;
     result.productionPromotionAuditExpected = true;
     result.productionPromotionAuditReadOnly = true;
+    result.productionPromotionAuditCompletionMarkerRequired = true;
+    result.productionPromotionAuditShellCodeAuthoritative = false;
     result.productionPromotionExplicitWriteAuthorizationRequired = true;
     result.productionPromotionRuntimeWriteEnabled = false;
     result.productionPromotionConfigModified = false;
@@ -290,13 +293,13 @@
     result.closeButtonRetained = true;
     result.moduleFetchMode = "single_commit_pinned";
     result.pinnedModuleCommit =
-        "5758e669d51cf1ffb00e9aac7439c292c280bf4f";
-    result.expectedModuleSetVersion = "20260803.23";
+        "8b252e781aec312c6350d8a6201bf3343ae4a8b6";
+    result.expectedModuleSetVersion = "20260803.24";
     result.expectedModuleCount = 42;
     result.expectedLastModule = "sbh_63_production_promotion_audit_ui.js";
     result.moduleSetActivated =
         result.ok === true &&
-        String(result.moduleSetVersion || "") === "20260803.23" &&
+        String(result.moduleSetVersion || "") === "20260803.24" &&
         result.sync &&
         result.sync.warning === null &&
         result.sync.fallback === false;
