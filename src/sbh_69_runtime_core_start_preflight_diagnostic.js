@@ -1,46 +1,579 @@
-/* SingBoxHub Stage50 Retry1 read-only preflight diagnostic. Rhino ES5 only.
- * Embedded GZIP source SHA-256: b7ebb789afac51d2659e5b2e0c6d9667ac9b0f3d4b278bffeed6795b928aee16
- */
+/* SingBoxHub Stage50 Retry1 read-only preflight diagnostic. Rhino ES5 only. */
+SBH.versions.runtimeCoreStartPreflightDiagnostic = 1;
+
 (function () {
     "use strict";
 
     var P = Packages;
-    var Base64 = P.android.util.Base64;
-    var ByteArrayInputStream = P.java.io.ByteArrayInputStream;
-    var GZIPInputStream = P.java.util.zip.GZIPInputStream;
-    var ByteArrayOutputStream = P.java.io.ByteArrayOutputStream;
-    var ReflectArray = P.java.lang.reflect.Array;
-    var JavaByte = P.java.lang.Byte;
-    var JavaString = P.java.lang.String;
-    var input = null;
-    var gzip = null;
-    var output = null;
-    var buffer = ReflectArray.newInstance(JavaByte.TYPE, 8192);
-    var count;
-    var source = null;
-    var encoded = "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";
+    var Thread = P.java.lang.Thread;
+    var Runnable = P.java.lang.Runnable;
+    var ShellCommand =
+        P.tornaco.apps.shortx.core.proto.action.ShellCommand;
+    var originalFactory = SBH.navigation.pages[1];
+    var originalStart = SBH.app.start;
+    var W = SBH.widgets;
+    var C = SBH.theme.colors;
+    var busy = false;
 
-    try {
-        input = new ByteArrayInputStream(
-            Base64.decode(encoded, Base64.DEFAULT)
-        );
-        gzip = new GZIPInputStream(input);
-        output = new ByteArrayOutputStream();
-        while ((count = gzip.read(buffer)) >= 0) {
-            if (count > 0) {
-                output.write(buffer, 0, count);
-            }
-        }
-        source = String(new JavaString(
-            output.toByteArray(),
-            "UTF-8"
-        ));
-        eval(source);
-    } finally {
-        source = null;
-        encoded = null;
-        try { if (gzip !== null) { gzip.close(); } } catch (ignoredGzip) {}
-        try { if (input !== null) { input.close(); } } catch (ignoredInput) {}
-        try { if (output !== null) { output.close(); } } catch (ignoredOutput) {}
+    var DIAGNOSTIC_ID =
+        "stage50-retry1-readonly-preflight-diagnostic-20260804";
+    var CHECK_TIMEOUT_SECONDS = 30;
+
+    function now() {
+        return Number(P.java.lang.System.currentTimeMillis());
     }
+
+    function quote(value) {
+        return "'" + String(value)
+            .replace(/'/g, "'\\''") + "'";
+    }
+
+    function contextValue(data, key) {
+        var value = data.get(String(key));
+        return value === null || value === undefined ?
+            "" : String(value);
+    }
+
+    function marker(raw, name) {
+        var match = String(raw || "").match(
+            new RegExp(
+                "(?:^|\\n)__SBH_" + name +
+                "__=([^\\n]*)(?:\\n|$)"
+            )
+        );
+        return match ? String(match[1]) : null;
+    }
+
+    function yes(raw, name) {
+        return marker(raw, name) === "1";
+    }
+
+    function numberValue(raw, name) {
+        var value = marker(raw, name);
+        var parsed = Number(value);
+        return value !== null && isFinite(parsed) ?
+            parsed : null;
+    }
+
+    function executeShell(command) {
+        var action = ShellCommand.newBuilder()
+            .setCommand(String(command))
+            .setSingleShot(true)
+            .setId(
+                "SingBoxHub#Stage50Retry1#diagnostic#" +
+                String(SBH.util.randomToken())
+            )
+            .build();
+        var result = shortx.executeAction(action);
+        var data = result.contextData;
+        var stdout = contextValue(data, "shellOut");
+        var stderr = contextValue(data, "shellErr");
+
+        return {
+            code: Number(data.get("shellCode")),
+            output: stdout +
+                (stderr ? "\n" + stderr : "")
+        };
+    }
+
+    function runtimeRoot() {
+        return String(shortx.getShortXDir()) +
+            "/SingBoxHub";
+    }
+
+    function resourceCountFunctions() {
+        return [
+            "rule4_count(){ ip -4 rule show 2>/dev/null | awk '" +
+                "$1 ~ /^[0-9]+:$/ {p=$1; sub(/:$/,\"\",p); " +
+                "if (p>=8800 && p<=8815) c++} END{print c+0}'; }",
+            "rule6_count(){ ip -6 rule show 2>/dev/null | awk '" +
+                "$1 ~ /^[0-9]+:$/ {p=$1; sub(/:$/,\"\",p); " +
+                "if (p>=8800 && p<=8815) c++} END{print c+0}'; }",
+            "route4_count(){ ip -4 route show table 20240 2>/dev/null | " +
+                "awk 'NF{c++} END{print c+0}'; }",
+            "route6_count(){ ip -6 route show table 20240 2>/dev/null | " +
+                "awk 'NF{c++} END{print c+0}'; }"
+        ];
+    }
+
+    function identityFunctions() {
+        return [
+            "match_core(){ " +
+                "P=\"$1\"; [ -r \"/proc/$P/cmdline\" ] || return 1; " +
+                "A0=$(tr '\\000' '\\n' < \"/proc/$P/cmdline\" 2>/dev/null | sed -n '1p'); " +
+                "A1=$(tr '\\000' '\\n' < \"/proc/$P/cmdline\" 2>/dev/null | sed -n '2p'); " +
+                "A2=$(tr '\\000' '\\n' < \"/proc/$P/cmdline\" 2>/dev/null | sed -n '3p'); " +
+                "A3=$(tr '\\000' '\\n' < \"/proc/$P/cmdline\" 2>/dev/null | sed -n '4p'); " +
+                "[ \"$A0\" = \"$BIN\" ] && [ \"$A1\" = run ] && " +
+                "[ \"$A2\" = -c ] && [ \"$A3\" = \"$CFG\" ]; " +
+            "}",
+            "core_count(){ " +
+                "C=0; for X in /proc/[0-9]*/cmdline; do " +
+                    "[ -r \"$X\" ] || continue; P=${X#/proc/}; P=${P%/cmdline}; " +
+                    "if match_core \"$P\"; then C=$((C + 1)); fi; " +
+                "done; printf '%s' \"$C\"; " +
+            "}"
+        ];
+    }
+
+    function checkFunction() {
+        return "check_config(){ " +
+            "if command -v timeout >/dev/null 2>&1; then " +
+                "timeout " + String(CHECK_TIMEOUT_SECONDS) +
+                "s \"$BIN\" check -c \"$CFG\" >/dev/null 2>&1; " +
+            "else \"$BIN\" check -c \"$CFG\" >/dev/null 2>&1; fi; " +
+        "}";
+    }
+
+    function buildCommand() {
+        var root = runtimeRoot();
+        var lines = [
+            "umask 077",
+            "ROOT=" + quote(root),
+            "D=" + quote(root + "/config"),
+            "CFG=" + quote(root + "/config/runtime-tun.json"),
+            "BIN=" + quote(root + "/bin/sing-box"),
+            "STATE=" + quote(root + "/state"),
+            "PROBE=" + quote(root + "/state/core-probes"),
+            "LOGS=" + quote(root + "/logs"),
+            "ACTIVE_PID=" + quote(root + "/state/core-probe-active.pid"),
+            "ACTIVE_META=" + quote(root + "/state/core-probe-active.json"),
+            "BLOCK=none",
+            "BLOCK_CODE=0",
+            "block(){ if [ \"$BLOCK\" = none ]; then BLOCK=\"$1\"; BLOCK_CODE=\"$2\"; fi; }"
+        ];
+
+        lines = lines.concat(resourceCountFunctions());
+        lines = lines.concat(identityFunctions());
+        lines.push(checkFunction());
+        lines = lines.concat([
+            "UIDV=$(id -u 2>/dev/null)",
+            "printf '__SBH_UID__=%s\\n' \"$UIDV\"",
+            "[ \"$UIDV\" = 0 ] || block root_uid 211",
+
+            "ROOT_OK=0; [ -d \"$ROOT\" ] && [ ! -L \"$ROOT\" ] && ROOT_OK=1",
+            "printf '__SBH_ROOT_OK__=%s\\n' \"$ROOT_OK\"",
+            "[ \"$ROOT_OK\" = 1 ] || block runtime_root 212",
+
+            "CONFIG_DIR_OK=0; [ -d \"$D\" ] && [ ! -L \"$D\" ] && CONFIG_DIR_OK=1",
+            "printf '__SBH_CONFIG_DIR_OK__=%s\\n' \"$CONFIG_DIR_OK\"",
+            "[ \"$CONFIG_DIR_OK\" = 1 ] || block config_directory 213",
+
+            "STATE_OK=0; [ -d \"$STATE\" ] && [ ! -L \"$STATE\" ] && STATE_OK=1",
+            "printf '__SBH_STATE_DIR_OK__=%s\\n' \"$STATE_OK\"",
+            "[ \"$STATE_OK\" = 1 ] || block state_directory 214",
+
+            "LOGS_OK=0; [ -d \"$LOGS\" ] && [ ! -L \"$LOGS\" ] && LOGS_OK=1",
+            "printf '__SBH_LOGS_DIR_OK__=%s\\n' \"$LOGS_OK\"",
+            "[ \"$LOGS_OK\" = 1 ] || block logs_directory 215",
+
+            "PROBE_EXISTS=0; [ -e \"$PROBE\" ] && PROBE_EXISTS=1",
+            "PROBE_TYPE_OK=1",
+            "if [ \"$PROBE_EXISTS\" = 1 ]; then " +
+                "[ -d \"$PROBE\" ] && [ ! -L \"$PROBE\" ] || PROBE_TYPE_OK=0; fi",
+            "printf '__SBH_PROBE_EXISTS__=%s\\n' \"$PROBE_EXISTS\"",
+            "printf '__SBH_PROBE_TYPE_OK__=%s\\n' \"$PROBE_TYPE_OK\"",
+            "[ \"$PROBE_TYPE_OK\" = 1 ] || block probe_directory_type 216",
+
+            "CFG_OK=0; [ -f \"$CFG\" ] && [ ! -L \"$CFG\" ] && CFG_OK=1",
+            "printf '__SBH_CONFIG_FILE_OK__=%s\\n' \"$CFG_OK\"",
+            "[ \"$CFG_OK\" = 1 ] || block production_config_file 219",
+
+            "BIN_OK=0; [ -f \"$BIN\" ] && [ -x \"$BIN\" ] && [ ! -L \"$BIN\" ] && BIN_OK=1",
+            "printf '__SBH_BINARY_OK__=%s\\n' \"$BIN_OK\"",
+            "[ \"$BIN_OK\" = 1 ] || block singbox_binary 220",
+
+            "CM=$(stat -c %a \"$CFG\" 2>/dev/null || echo -1)",
+            "CU=$(stat -c %u \"$CFG\" 2>/dev/null || echo -1)",
+            "CG=$(stat -c %g \"$CFG\" 2>/dev/null || echo -1)",
+            "printf '__SBH_CM__=%s\\n' \"$CM\"",
+            "printf '__SBH_CU__=%s\\n' \"$CU\"",
+            "printf '__SBH_CG__=%s\\n' \"$CG\"",
+            "[ \"$CM\" = 600 ] && [ \"$CU\" = 0 ] && [ \"$CG\" = 0 ] || block production_config_metadata 221",
+
+            "SC=0; STAGE=''",
+            "for F in \"$D\"/.runtime-tun.json.stage-*; do " +
+                "[ -e \"$F\" ] || continue; SC=$((SC + 1)); STAGE=\"$F\"; " +
+            "done",
+            "printf '__SBH_STAGE_COUNT__=%s\\n' \"$SC\"",
+            "[ \"$SC\" = 1 ] || block staging_count 222",
+
+            "STAGE_OK=0",
+            "if [ \"$SC\" = 1 ] && [ -f \"$STAGE\" ] && [ ! -L \"$STAGE\" ]; then STAGE_OK=1; fi",
+            "printf '__SBH_STAGE_TYPE_OK__=%s\\n' \"$STAGE_OK\"",
+            "[ \"$SC\" != 1 ] || [ \"$STAGE_OK\" = 1 ] || block staging_file_type 223",
+
+            "CH=$(sha256sum \"$CFG\" 2>/dev/null | awk '{print $1}')",
+            "CB=$(stat -c %s \"$CFG\" 2>/dev/null || echo -1)",
+            "SH=none; SB=-1",
+            "if [ \"$SC\" = 1 ]; then " +
+                "SH=$(sha256sum \"$STAGE\" 2>/dev/null | awk '{print $1}'); " +
+                "SB=$(stat -c %s \"$STAGE\" 2>/dev/null || echo -1); fi",
+            "LINEAGE=0; [ \"$SC\" = 1 ] && [ -n \"$CH\" ] && [ \"$CH\" = \"$SH\" ] && [ \"$CB\" = \"$SB\" ] && LINEAGE=1",
+            "printf '__SBH_CH__=%s\\n' \"${CH:-none}\"",
+            "printf '__SBH_CB__=%s\\n' \"$CB\"",
+            "printf '__SBH_SH__=%s\\n' \"$SH\"",
+            "printf '__SBH_SB__=%s\\n' \"$SB\"",
+            "printf '__SBH_LINEAGE__=%s\\n' \"$LINEAGE\"",
+            "[ \"$LINEAGE\" = 1 ] || block production_staging_lineage 224",
+
+            "CHECK=-1",
+            "if [ \"$CFG_OK\" = 1 ] && [ \"$BIN_OK\" = 1 ]; then check_config; CHECK=$?; fi",
+            "printf '__SBH_CHECK__=%s\\n' \"$CHECK\"",
+            "[ \"$CHECK\" = 0 ] || block production_config_check 225",
+
+            "ACTIVE_META_EXISTS=0; [ -e \"$ACTIVE_META\" ] && ACTIVE_META_EXISTS=1",
+            "ACTIVE_META_FILE_OK=1",
+            "if [ \"$ACTIVE_META_EXISTS\" = 1 ]; then " +
+                "[ -f \"$ACTIVE_META\" ] && [ ! -L \"$ACTIVE_META\" ] || ACTIVE_META_FILE_OK=0; fi",
+            "printf '__SBH_ACTIVE_META_EXISTS__=%s\\n' \"$ACTIVE_META_EXISTS\"",
+            "printf '__SBH_ACTIVE_META_FILE_OK__=%s\\n' \"$ACTIVE_META_FILE_OK\"",
+            "[ \"$ACTIVE_META_EXISTS\" = 0 ] || block active_metadata_present 227",
+
+            "ACTIVE_PID_EXISTS=0; [ -e \"$ACTIVE_PID\" ] && ACTIVE_PID_EXISTS=1",
+            "ACTIVE_PID_FILE_OK=1; ACTIVE_PID_NUMERIC=0; ACTIVE_PID_ALIVE=0; ACTIVE_PID_MATCH=0",
+            "if [ \"$ACTIVE_PID_EXISTS\" = 1 ]; then " +
+                "[ -f \"$ACTIVE_PID\" ] && [ ! -L \"$ACTIVE_PID\" ] || ACTIVE_PID_FILE_OK=0; " +
+                "AP=$(cat \"$ACTIVE_PID\" 2>/dev/null); " +
+                "case \"$AP\" in ''|*[!0-9]*) ACTIVE_PID_NUMERIC=0;; *) ACTIVE_PID_NUMERIC=1;; esac; " +
+                "if [ \"$ACTIVE_PID_NUMERIC\" = 1 ] && kill -0 \"$AP\" 2>/dev/null; then ACTIVE_PID_ALIVE=1; fi; " +
+                "if [ \"$ACTIVE_PID_ALIVE\" = 1 ] && match_core \"$AP\"; then ACTIVE_PID_MATCH=1; fi; " +
+            "fi",
+            "printf '__SBH_ACTIVE_PID_EXISTS__=%s\\n' \"$ACTIVE_PID_EXISTS\"",
+            "printf '__SBH_ACTIVE_PID_FILE_OK__=%s\\n' \"$ACTIVE_PID_FILE_OK\"",
+            "printf '__SBH_ACTIVE_PID_NUMERIC__=%s\\n' \"$ACTIVE_PID_NUMERIC\"",
+            "printf '__SBH_ACTIVE_PID_ALIVE__=%s\\n' \"$ACTIVE_PID_ALIVE\"",
+            "printf '__SBH_ACTIVE_PID_MATCH__=%s\\n' \"$ACTIVE_PID_MATCH\"",
+            "if [ \"$ACTIVE_PID_EXISTS\" = 1 ]; then " +
+                "if [ \"$ACTIVE_PID_FILE_OK\" != 1 ]; then block active_pid_file_type 228; " +
+                "elif [ \"$ACTIVE_PID_NUMERIC\" != 1 ]; then block active_pid_format 229; " +
+                "elif [ \"$ACTIVE_PID_ALIVE\" = 1 ] && [ \"$ACTIVE_PID_MATCH\" = 1 ]; then block active_core_already_running 230; " +
+                "else block stale_active_pid 231; fi; fi",
+
+            "EXISTING=$(core_count)",
+            "printf '__SBH_EXISTING__=%s\\n' \"$EXISTING\"",
+            "[ \"$EXISTING\" = 0 ] || block existing_matching_core 232",
+
+            "TUN=0; [ -e /sys/class/net/sbh-tun0 ] && TUN=1",
+            "R4=$(rule4_count); R6=$(rule6_count)",
+            "RT4=$(route4_count); RT6=$(route6_count)",
+            "printf '__SBH_TUN__=%s\\n' \"$TUN\"",
+            "printf '__SBH_RULE4__=%s\\n' \"$R4\"",
+            "printf '__SBH_RULE6__=%s\\n' \"$R6\"",
+            "printf '__SBH_ROUTE4__=%s\\n' \"$RT4\"",
+            "printf '__SBH_ROUTE6__=%s\\n' \"$RT6\"",
+            "[ \"$TUN\" = 0 ] && [ \"$R4\" = 0 ] && [ \"$R6\" = 0 ] && " +
+                "[ \"$RT4\" = 0 ] && [ \"$RT6\" = 0 ] || block reserved_network_resources 233",
+
+            "WOULD_PASS=0; [ \"$BLOCK\" = none ] && WOULD_PASS=1",
+            "printf '__SBH_BLOCK__=%s\\n' \"$BLOCK\"",
+            "printf '__SBH_BLOCK_CODE__=%s\\n' \"$BLOCK_CODE\"",
+            "printf '__SBH_WOULD_PASS__=%s\\n' \"$WOULD_PASS\"",
+            "printf '__SBH_DONE__=1\\n'",
+            "exit 0"
+        ]);
+
+        return lines.join("; ");
+    }
+
+    function diagnose() {
+        var shell = executeShell(buildCommand());
+        var raw = shell.output;
+        var done = yes(raw, "DONE");
+        var blockingGate = marker(raw, "BLOCK");
+        var wouldPass = yes(raw, "WOULD_PASS");
+        var success = done && blockingGate !== null;
+
+        return {
+            ok: success,
+            stage:
+                "production_stage50_retry1_readonly_preflight_diagnostic",
+            diagnosticId: DIAGNOSTIC_ID,
+            authorizationConsumed: false,
+            automaticRetryAllowed: false,
+            manualOnly: true,
+            readOnlyDiagnostic: true,
+            completionMarkerObserved: done,
+            originalPreflightWouldPass: wouldPass,
+            blockingGate:
+                blockingGate === "none" ? null : blockingGate,
+            likelyOriginalExitCode:
+                numberValue(raw, "BLOCK_CODE"),
+            shellUid: numberValue(raw, "UID"),
+            runtimeRootValid: yes(raw, "ROOT_OK"),
+            configDirectoryValid: yes(raw, "CONFIG_DIR_OK"),
+            stateDirectoryValid: yes(raw, "STATE_DIR_OK"),
+            logsDirectoryValid: yes(raw, "LOGS_DIR_OK"),
+            probeDirectoryExists: yes(raw, "PROBE_EXISTS"),
+            probeDirectoryTypeValid: yes(raw, "PROBE_TYPE_OK"),
+            probeDirectoryWouldBeCreated:
+                !yes(raw, "PROBE_EXISTS") &&
+                yes(raw, "STATE_DIR_OK"),
+            productionConfigFileValid:
+                yes(raw, "CONFIG_FILE_OK"),
+            singBoxBinaryValid: yes(raw, "BINARY_OK"),
+            productionConfigMode: marker(raw, "CM"),
+            productionConfigUid: numberValue(raw, "CU"),
+            productionConfigGid: numberValue(raw, "CG"),
+            stagingCount: numberValue(raw, "STAGE_COUNT"),
+            stagingFileTypeValid: yes(raw, "STAGE_TYPE_OK"),
+            productionConfigSha256: marker(raw, "CH"),
+            productionConfigByteCount: numberValue(raw, "CB"),
+            stagingConfigSha256: marker(raw, "SH"),
+            stagingConfigByteCount: numberValue(raw, "SB"),
+            productionStagingLineageMatched:
+                yes(raw, "LINEAGE"),
+            productionConfigCheckExitCode:
+                numberValue(raw, "CHECK"),
+            productionConfigCheckPassed:
+                numberValue(raw, "CHECK") === 0,
+            activeMetadataExists:
+                yes(raw, "ACTIVE_META_EXISTS"),
+            activeMetadataFileTypeValid:
+                yes(raw, "ACTIVE_META_FILE_OK"),
+            activePidExists:
+                yes(raw, "ACTIVE_PID_EXISTS"),
+            activePidFileTypeValid:
+                yes(raw, "ACTIVE_PID_FILE_OK"),
+            activePidNumeric:
+                yes(raw, "ACTIVE_PID_NUMERIC"),
+            activePidAlive:
+                yes(raw, "ACTIVE_PID_ALIVE"),
+            activePidMatchesCore:
+                yes(raw, "ACTIVE_PID_MATCH"),
+            existingMatchingCoreCount:
+                numberValue(raw, "EXISTING"),
+            tunInterfacePresent: yes(raw, "TUN"),
+            reservedIpv4RuleCount:
+                numberValue(raw, "RULE4"),
+            reservedIpv6RuleCount:
+                numberValue(raw, "RULE6"),
+            reservedIpv4RouteCount:
+                numberValue(raw, "ROUTE4"),
+            reservedIpv6RouteCount:
+                numberValue(raw, "ROUTE6"),
+            shellCode: shell.code,
+            shellCodeAuthoritative: false,
+            shellTransportCodeAnomalous:
+                done && shell.code !== 0,
+            coreStartInvoked: false,
+            coreStopInvoked: false,
+            runtimeFilesModified: false,
+            configModified: false,
+            tunCreated: false,
+            routeModified: false,
+            networkAccessed: false,
+            destructiveOperations: false,
+            readyForCorrectedStage50Retry:
+                success && wouldPass,
+            nextAuthorizedOperation:
+                success ?
+                    (
+                        wouldPass ?
+                            "corrected_runtime_core_start_probe_retry" :
+                            "repair_identified_stage50_preflight_gate"
+                    ) :
+                    "resolve_stage50_diagnostic_transport",
+            timestamp: now()
+        };
+    }
+
+    function diagnoseAsync(callback) {
+        if (typeof callback !== "function") {
+            throw new Error(
+                "Stage50 Retry1 diagnostic callback unavailable"
+            );
+        }
+        if (busy) {
+            callback({
+                ok: false,
+                stage:
+                    "production_stage50_retry1_readonly_preflight_diagnostic",
+                errorCode:
+                    "STAGE50_RETRY1_DIAGNOSTIC_ALREADY_RUNNING",
+                timestamp: now()
+            });
+            return {
+                accepted: false,
+                busy: true
+            };
+        }
+
+        busy = true;
+        new Thread(
+            new JavaAdapter(Runnable, {
+                run: function () {
+                    var output;
+                    try {
+                        output = diagnose();
+                    } catch (ignored) {
+                        output = {
+                            ok: false,
+                            stage:
+                                "production_stage50_retry1_readonly_preflight_diagnostic",
+                            errorCode:
+                                "READONLY_PREFLIGHT_DIAGNOSTIC_FAILED",
+                            errorDetailReturned: false,
+                            diagnosticId: DIAGNOSTIC_ID,
+                            authorizationConsumed: false,
+                            coreStartInvoked: false,
+                            runtimeFilesModified: false,
+                            destructiveOperations: false,
+                            timestamp: now()
+                        };
+                    }
+                    busy = false;
+                    SBH.handler.post(
+                        new JavaAdapter(Runnable, {
+                            run: function () {
+                                callback(output);
+                            }
+                        })
+                    );
+                }
+            }),
+            "SingBoxHub-Stage50Retry1Diagnostic"
+        ).start();
+
+        return {
+            accepted: true,
+            busy: false
+        };
+    }
+
+    function buildCard() {
+        var card = W.card(17);
+        var title = W.text(
+            "Stage 50 前置门禁诊断",
+            17,
+            C.navy,
+            true
+        );
+        var note = W.text(
+            "只读复核 Stage 50 的每项前置条件并返回首个阻断门禁。" +
+            "本诊断不再次启动 Core，不创建文件，不修复状态，不修改配置、TUN 或路由。",
+            11.4,
+            C.secondary,
+            false
+        );
+        var resultText = W.text(
+            JSON.stringify({
+                ready: true,
+                diagnosticId: DIAGNOSTIC_ID,
+                readOnly: true,
+                coreStartEnabled: false,
+                runtimeWriteEnabled: false,
+                automaticRetryAllowed: false
+            }, null, 2),
+            10.3,
+            C.secondary,
+            false
+        );
+        var button = W.button(
+            "诊断 Stage 50 前置门禁",
+            "shield",
+            C.orange,
+            C.orangeSoft,
+            function () {
+                resultText.setText(
+                    "正在执行只读前置门禁诊断。"
+                );
+                SBH.util.toast(
+                    "正在诊断 Stage 50 前置门禁"
+                );
+                diagnoseAsync(function (result) {
+                    resultText.setText(
+                        JSON.stringify(result, null, 2)
+                    );
+                    SBH.util.toast(
+                        result.ok === true ?
+                            (
+                                result.blockingGate ?
+                                    "已定位 Stage 50 阻断门禁" :
+                                    "前置条件已通过，等待修正版启动授权"
+                            ) :
+                            "Stage 50 诊断存在待处理项"
+                    );
+                });
+            }
+        );
+
+        card.setPadding(
+            SBH.util.dp(14),
+            SBH.util.dp(14),
+            SBH.util.dp(14),
+            SBH.util.dp(14)
+        );
+        card.addView(title);
+        note.setPadding(
+            0,
+            SBH.util.dp(7),
+            0,
+            SBH.util.dp(8)
+        );
+        card.addView(note);
+        resultText.setTextIsSelectable(true);
+        card.addView(resultText);
+        card.addView(
+            button,
+            W.margins(
+                W.lp(W.MATCH, SBH.util.dp(44)),
+                0,
+                12,
+                0,
+                0
+            )
+        );
+        return card;
+    }
+
+    if (typeof originalFactory !== "function" ||
+            typeof originalStart !== "function") {
+        throw new Error(
+            "Stage50 Retry1 diagnostic dependencies unavailable"
+        );
+    }
+
+    SBH.runtimeCoreStartPreflightDiagnostic = {
+        version: 1,
+        diagnoseAsync: diagnoseAsync,
+        diagnosticId: DIAGNOSTIC_ID,
+        manualOnly: true,
+        readOnly: true,
+        automaticRetryAllowed: false,
+        coreStartEnabled: false,
+        runtimeWriteEnabled: false
+    };
+
+    SBH.navigation.register(1, function (controller) {
+        var view = originalFactory(controller);
+        var content = view.getChildAt(0);
+        content.addView(
+            buildCard(),
+            W.margins(
+                W.lp(W.MATCH, W.WRAP),
+                0,
+                16,
+                0,
+                12
+            )
+        );
+        return view;
+    });
+
+    SBH.app.start = function () {
+        var output = originalStart();
+
+        output.runtimeCoreStartPreflightDiagnosticVersion = 1;
+        output.runtimeCoreStartPreflightDiagnosticReady = true;
+        output.runtimeCoreStartPreflightDiagnosticId =
+            DIAGNOSTIC_ID;
+        output.runtimeCoreStartPreflightDiagnosticManualOnly = true;
+        output.runtimeCoreStartPreflightDiagnosticReadOnly = true;
+        output.runtimeCoreStartDiagnosticCoreStartEnabled = false;
+        output.runtimeCoreStartDiagnosticRuntimeWriteEnabled = false;
+        output.writeOperationsLocked = true;
+        output.destructiveOperations = false;
+        return output;
+    };
 }());
